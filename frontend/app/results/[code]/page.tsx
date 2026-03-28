@@ -19,10 +19,10 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
   const [gameOver, setGameOver] = useState<GameOverPayload | null>(null)
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({})
 
+  // Load data and socket — depends on code/router
   useEffect(() => {
     initStringTune()
 
-    // Load stored result data
     const vr = sessionStorage.getItem("vote_result")
     const go = sessionStorage.getItem("game_over")
     const gs = sessionStorage.getItem("game_start")
@@ -36,7 +36,6 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
       if (parsed.player_names) setPlayerNames(parsed.player_names)
     }
 
-    // Stay connected so we receive game_restart from other players
     const socket = getSocket()
     if (!socket.connected) socket.connect()
     socket.on("game_restart", () => {
@@ -46,22 +45,23 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
       router.push(`/room/${code}`)
     })
 
-    // Cinematic reveal sequence
+    return () => { socket.off("game_restart") }
+  }, [code, router])
+
+  // Cinematic reveal — run once on mount
+  useEffect(() => {
     const timings: [Phase, number][] = [
-      [1, 500],    // Phase 1: "EXPERIMENT COMPLETE"
-      [2, 2500],   // Phase 2: result announcement
-      [3, 4500],   // Phase 3: flip card
-      [4, 7000],   // Phase 4: directive
-      [5, 10000],  // Phase 5: action buttons
+      [1, 500],
+      [2, 2500],
+      [3, 4500],
+      [4, 7000],
+      [5, 10000],
     ]
     const timeouts = timings.map(([phase, delay]) =>
       setTimeout(() => setRevealPhase(phase), delay)
     )
-    return () => {
-      timeouts.forEach(clearTimeout)
-      socket.off("game_restart")
-    }
-  }, [code, router])
+    return () => timeouts.forEach(clearTimeout)
+  }, [])
 
   const impostorId = result?.eliminated_id ?? gameOver?.impostor_id ?? ""
   const impostorName = playerNames[impostorId] ?? impostorId ?? "Unknown"
