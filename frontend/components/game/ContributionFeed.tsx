@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import ReactMarkdown from "react-markdown"
 
 interface ContributionFeedProps {
   contributions: Record<string, string>
@@ -17,15 +18,15 @@ export default function ContributionFeed({ contributions, playerNames, latestPla
   }, [entries.length])
 
   return (
-    <div className="flex flex-col gap-2 overflow-y-auto max-h-80 pr-1">
-      <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] mb-1 sticky top-0" style={{ background: "var(--lab-bg)" }}>
-        CONTRIBUTIONS
+    <div className="flex flex-col gap-3 overflow-y-auto max-h-[420px] pr-1">
+      <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] sticky top-0" style={{ background: "var(--lab-surface)" }}>
+        LIVE DOCUMENT
       </p>
 
       {entries.length === 0 ? (
         <div className="flex items-center justify-center py-8">
           <p className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
-            NO CONTRIBUTIONS YET — FIRST TURN IN PROGRESS
+            NO CONTRIBUTIONS YET — BE THE FIRST TO WRITE
           </p>
         </div>
       ) : (
@@ -34,19 +35,20 @@ export default function ContributionFeed({ contributions, playerNames, latestPla
           return (
             <div
               key={pid}
-              className="rounded border p-3 animate-slide-up-fade transition-colors"
+              className="rounded border p-4 transition-colors"
               style={{
                 borderColor: isLatest ? "var(--lab-accent)" : "var(--lab-border)",
-                background: isLatest ? "rgba(0,223,162,0.04)" : "var(--lab-surface)",
-                borderLeft: isLatest ? "2px solid var(--lab-accent)" : `1px solid var(--lab-border)`,
+                background: isLatest ? "rgba(0,223,162,0.04)" : "var(--lab-surface-hi)",
+                borderLeft: `3px solid ${isLatest ? "var(--lab-accent)" : "var(--lab-border)"}`,
               }}
             >
-              <p className="text-[10px] font-[family-name:var(--font-space-mono)] tracking-widest mb-1.5" style={{ color: "var(--lab-text-dim)" }}>
+              <p className="text-[10px] font-[family-name:var(--font-space-mono)] tracking-widest mb-2" style={{ color: isLatest ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
                 {playerNames[pid] ?? pid}
               </p>
-              <pre className="text-sm whitespace-pre-wrap font-[family-name:var(--font-fira-code)] text-[var(--lab-text)] leading-relaxed">
-                {text}
-              </pre>
+              <div className="prose prose-sm prose-invert max-w-none text-[var(--lab-text)] leading-relaxed"
+                style={{ fontFamily: "var(--font-fira-code)" }}>
+                <ReactMarkdown>{text}</ReactMarkdown>
+              </div>
             </div>
           )
         })

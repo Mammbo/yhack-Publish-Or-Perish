@@ -117,7 +117,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   }
 
   const isHost = myPlayerId === hostId || players.length === 0
-  const canStart = players.length >= 2 || isDemo
+  const uploadDone = phase === "ingesting"
+  const canStart = (players.length >= 4 && uploadDone) || isDemo
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
@@ -227,7 +228,12 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               onMouseEnter={(e) => { if (canStart) e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
               onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
             >
-              {canStart ? "BEGIN EXPERIMENT →" : `NEED ${2 - players.length} MORE RESEARCHER${2 - players.length !== 1 ? "S" : ""}`}
+              {canStart
+                ? "BEGIN EXPERIMENT →"
+                : players.length < 4
+                  ? `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
+                  : "UPLOAD MATERIALS FIRST"
+              }
             </button>
           )}
         </div>
