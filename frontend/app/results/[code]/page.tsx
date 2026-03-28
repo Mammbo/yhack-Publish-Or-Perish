@@ -24,16 +24,16 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
     // Load stored result data
     const vr = sessionStorage.getItem("vote_result")
     const go = sessionStorage.getItem("game_over")
-    const pn = sessionStorage.getItem("player_names")
+    const gs = sessionStorage.getItem("game_start")
 
     if (vr) setResult(JSON.parse(vr))
     else if (go) setGameOver(JSON.parse(go))
-    else {
-      // Demo fallback
-      setResult(MOCK_VOTE_RESULT)
-    }
+    else setResult(MOCK_VOTE_RESULT)
 
-    if (pn) setPlayerNames(JSON.parse(pn))
+    if (gs) {
+      const parsed = JSON.parse(gs)
+      if (parsed.player_names) setPlayerNames(parsed.player_names)
+    }
 
     // Cinematic reveal sequence
     const timings: [Phase, number][] = [
