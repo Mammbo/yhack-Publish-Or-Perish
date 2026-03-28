@@ -56,6 +56,19 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       if (data.player_names) setPlayerNames(data.player_names)
     }
 
+    // Refresh recovery — if sessionStorage was cleared (page reload), fetch from server
+    if (!stored && !isDemo) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/state?room_code=${code}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.problem_statement) setProblem(d.problem_statement)
+          if (d.players) setPlayers(d.players)
+          if (d.player_names) setPlayerNames(d.player_names)
+          if (d.contributions) setContributions(d.contributions)
+        })
+        .catch(() => {})
+    }
+
     if (isDemo) {
       if (Math.random() > 0.5) {
         setIsImpostor(true)
@@ -69,7 +82,14 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
 
     const socket = getSocket()
-    if (!socket.connected) socket.connect()
+    if (!socket.connected) {
+      socket.connect()
+      // Re-join the socket room after a page refresh
+      const pname = sessionStorage.getItem("player_name") ?? pid
+      socket.once("connect", () => {
+        socket.emit("join_room", { room_code: code, player_id: pid, player_name: pname })
+      })
+    }
 
     // Fetch directive via HTTP — more reliable than the socket event which can
     // be missed during React page navigation after game_start fires.

@@ -20,6 +20,7 @@ pattern — startup and shutdown logic live together in a context manager
 and cleanup is guaranteed even if startup crashes.
 """
 
+import asyncio
 import json
 import random
 import string
@@ -165,6 +166,21 @@ async def game_ready(body: GameReadyRequest):
         }, to=impostor_sid)
 
     return {"status": "game started", "impostor": impostor_id}
+
+
+@app.get("/room/state")
+async def get_room_state(room_code: str):
+    """Game page fetches this on mount/refresh to restore state from the server."""
+    if not await state.room_exists(room_code):
+        raise HTTPException(status_code=404, detail="Room not found")
+    content = await state.get_content(room_code)
+    return {
+        "state": await state.get_state(room_code),
+        "players": await state.get_players(room_code),
+        "player_names": await state.get_player_names(room_code),
+        "contributions": await state.get_contributions(room_code),
+        "problem_statement": content.get("problem_statement", "") if content else "",
+    }
 
 
 @app.get("/room/directive")
@@ -393,13 +409,14 @@ async def call_meeting(sid, data):
 
     await state.transition_state(room_code, "voting")
 
-    # Snapshot the contributions at the moment the meeting is called so
-    # everyone is looking at the same doc during the vote discussion
     contributions = await state.get_contributions(room_code)
     await sio.emit("meeting_called", {
         "caller_id": caller_id,
         "contributions_snapshot": contributions,
     }, room=room_code)
+
+    # Server-side 60s deadline — auto-tally if not all votes arrive in time
+    asyncio.create_task(_auto_tally(room_code))
 
 
 @sio.event
@@ -465,6 +482,12 @@ async def disconnect(sid, reason=None):
 
 
 # ── Vote resolution ────────────────────────────────────────────────────────────
+
+async def _auto_tally(room_code: str):
+    """Force-tally after 60 s so a game never hangs on a missing vote."""
+    await asyncio.sleep(60)
+    if await state.get_state(room_code) == "voting":
+        await tally_votes(room_code)
 
 async def tally_votes(room_code: str):
     """

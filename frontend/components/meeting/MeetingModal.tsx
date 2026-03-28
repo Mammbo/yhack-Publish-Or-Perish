@@ -29,7 +29,8 @@ export default function MeetingModal({
   const [voted, setVoted] = useState(false)
   const [votedFor, setVotedFor] = useState<string | null>(null)
   const [timeLeft, setTimeLeft] = useState(60)
-  const [liveTally, setLiveTally] = useState<Record<string, number>>({})
+  const [votesIn, setVotesIn] = useState(0)
+  const [totalPlayers, setTotalPlayers] = useState(players.length)
   const socket = getSocket()
 
   const alivePlayers = players.filter((p) => !eliminatedPlayers.includes(p))
@@ -41,10 +42,15 @@ export default function MeetingModal({
 
   useEffect(() => {
     if (!isDemo) {
-      socket.on("vote_result", (data: VoteResult) => {
-        onVoteResult(data)
+      socket.on("vote_result", (data: VoteResult) => onVoteResult(data))
+      socket.on("vote_progress", (data: { votes_in: number; total_players: number }) => {
+        setVotesIn(data.votes_in)
+        setTotalPlayers(data.total_players)
       })
-      return () => { socket.off("vote_result") }
+      return () => {
+        socket.off("vote_result")
+        socket.off("vote_progress")
+      }
     }
   }, [socket, onVoteResult, isDemo])
 
@@ -94,15 +100,28 @@ export default function MeetingModal({
           )}
         </div>
 
-        {/* Timer */}
-        <div className="flex items-center justify-between">
-          <p className="text-xs text-[var(--lab-text-dim)]">Vote to eliminate a researcher</p>
-          <span
-            className={`font-[family-name:var(--font-space-mono)] font-bold tabular-nums text-sm ${timeLeft <= 10 ? "animate-timer-danger" : timeLeft <= 20 ? "animate-timer-warn" : ""}`}
-            style={{ color: timeLeft > 20 ? "var(--lab-text)" : undefined }}
-          >
-            {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:{String(timeLeft % 60).padStart(2, "0")}
-          </span>
+        {/* Timer + vote progress */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-[var(--lab-text-dim)]">Vote to eliminate a researcher</p>
+            <span
+              className={`font-[family-name:var(--font-space-mono)] font-bold tabular-nums text-sm ${timeLeft <= 10 ? "animate-timer-danger" : timeLeft <= 20 ? "animate-timer-warn" : ""}`}
+              style={{ color: timeLeft > 20 ? "var(--lab-text)" : undefined }}
+            >
+              {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:{String(timeLeft % 60).padStart(2, "0")}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--lab-border)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalPlayers > 0 ? (votesIn / totalPlayers) * 100 : 0}%`, background: "var(--lab-warn)" }}
+              />
+            </div>
+            <span className="text-[10px] font-[family-name:var(--font-space-mono)] tabular-nums" style={{ color: "var(--lab-warn)" }}>
+              {votesIn}/{totalPlayers} VOTES
+            </span>
+          </div>
         </div>
 
         {/* Vote cards */}
@@ -132,11 +151,6 @@ export default function MeetingModal({
                       {playerNames[pid] ?? pid}
                       {isMe && <span className="text-[10px] text-[var(--lab-text-dim)] ml-2">(YOU)</span>}
                     </span>
-                    {liveTally[pid] != null && (
-                      <span className="text-xs text-[var(--lab-warn)] font-[family-name:var(--font-space-mono)]">
-                        {liveTally[pid]}▲
-                      </span>
-                    )}
                   </div>
                   {!isMe && (
                     <button
