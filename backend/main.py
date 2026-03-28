@@ -267,6 +267,7 @@ async def join_room(sid, data):
         "player_name": player_name,
     }
 
+    await state.add_player(room_code, player_id)
     await state.set_player_name(room_code, player_id, player_name)
     players = await state.get_players(room_code)
     player_names = await state.get_player_names(room_code)
