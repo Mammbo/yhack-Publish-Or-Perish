@@ -60,6 +60,8 @@ app.add_middleware(
         "http://localhost:3000",
         "https://publishorperish.com",
         "https://www.publishorperish.com",
+        "https://publishorperish.vercel.app",
+        "https://publishorperish-pty989ar2-mammbos-projects.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
