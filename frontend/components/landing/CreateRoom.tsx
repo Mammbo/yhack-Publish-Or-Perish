@@ -16,8 +16,8 @@ export default function CreateRoom() {
     setError("")
     try {
       const playerId = crypto.randomUUID()
-      localStorage.setItem("player_id", playerId)
-      localStorage.setItem("player_name", name.trim())
+      sessionStorage.setItem("player_id", playerId)
+      sessionStorage.setItem("player_name", name.trim())
 
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/create`, {
         method: "POST",

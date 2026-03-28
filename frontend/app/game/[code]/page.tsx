@@ -44,7 +44,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const myPlayerIdRef = useRef("")
 
   useEffect(() => {
-    const pid = localStorage.getItem("player_id") ?? ""
+    const pid = sessionStorage.getItem("player_id") ?? ""
     setMyPlayerId(pid)
     myPlayerIdRef.current = pid
 
@@ -70,6 +70,18 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     const socket = getSocket()
     if (!socket.connected) socket.connect()
+
+    // Fetch directive via HTTP — more reliable than the socket event which can
+    // be missed during React page navigation after game_start fires.
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/directive?room_code=${code}&player_id=${pid}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.is_impostor && d.directive) {
+          setIsImpostor(true)
+          setDirective(d.directive)
+        }
+      })
+      .catch(() => {})
 
     socket.on("game_start", (data: GameData) => {
       setProblem(data.problem_statement)

@@ -33,10 +33,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   useEffect(() => {
     initStringTune()
 
-    const pid = localStorage.getItem("player_id") ?? crypto.randomUUID()
-    const pname = localStorage.getItem("player_name") ?? "Researcher"
-    localStorage.setItem("player_id", pid)
-    localStorage.setItem("player_name", pname)
+    const pid = sessionStorage.getItem("player_id") ?? crypto.randomUUID()
+    const pname = sessionStorage.getItem("player_name") ?? "Researcher"
+    sessionStorage.setItem("player_id", pid)
+    sessionStorage.setItem("player_name", pname)
     setMyPlayerId(pid)
     setMyPlayerName(pname)
 

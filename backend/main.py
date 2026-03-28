@@ -164,6 +164,21 @@ async def game_ready(body: GameReadyRequest):
     return {"status": "game started", "impostor": impostor_id}
 
 
+@app.get("/room/directive")
+async def get_directive(room_code: str, player_id: str):
+    """
+    Game page fetches this on mount to reliably get the impostor directive.
+    The socket event (impostor_directive) fires right after game_start and
+    can be missed during React page navigation. This endpoint is the fallback.
+    """
+    impostor = await state.get_impostor(room_code)
+    if player_id != impostor:
+        return {"is_impostor": False, "directive": None}
+    content = await state.get_content(room_code)
+    directive = content.get("impostor_directive", "") if content else ""
+    return {"is_impostor": True, "directive": directive}
+
+
 @app.post("/room/game-failed")
 async def game_failed(body: GameFailedRequest):
     """Person 2 calls this if the AI pipeline errors. Resets the room."""
