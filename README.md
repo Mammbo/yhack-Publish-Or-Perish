@@ -46,7 +46,7 @@ The impostor is not told to "be wrong." They are given a **different objective**
 
 **Redis** — Game state needs to be ephemeral, fast, and shared across potentially multiple FastAPI workers. Redis TTL keys handle game timers natively. State should evaporate when a game ends — Redis is the right tool.
 
-**Supabase** — Postgres + file storage + auth in one dashboard with zero DevOps. We are not setting up our own Postgres instance at a hackathon.
+**MongoDB Atlas** — Document store for persistent records (players, sessions, file metadata). Free tier, zero DevOps, async-friendly with Motor driver in Python.
 
 **Celery + Redis** — File ingestion + AI calls take 10–30 seconds. Without a task queue this blocks the main FastAPI thread and the WebSocket server dies. Celery pushes processing to background workers.
 
@@ -231,34 +231,15 @@ socket.on("player_joined", (data) => setPlayers(data.players))
 
 ---
 
-### Person 4 — DevOps, Auth, Upload Flow & Integration
-**Own:** Supabase setup, file upload endpoint, Vercel + Railway deployment, GoDaddy DNS, integration glue
+### Person 4 — DevOps, Upload Flow & Integration
+**Own:** MongoDB setup, file upload endpoint, Vercel + Railway deployment, GoDaddy DNS, integration glue
 
 **Hours 0–4: Infrastructure Setup**
-- Spin up Supabase project: enable Storage, create tables:
-```sql
-CREATE TABLE players (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
-CREATE TABLE game_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  room_code TEXT NOT NULL,
-  subject TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  ended_at TIMESTAMP
-);
-
-CREATE TABLE uploaded_files (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID REFERENCES game_sessions(id),
-  file_path TEXT NOT NULL,
-  file_type TEXT NOT NULL,
-  uploaded_at TIMESTAMP DEFAULT NOW()
-);
-```
+- Spin up MongoDB Atlas free cluster — get connection string
+- Set up Motor (async MongoDB driver) in FastAPI with three collections:
+  - `players` — player records
+  - `game_sessions` — room history, winner, timestamps
+  - `uploaded_files` — file metadata and temp paths
 - Deploy FastAPI to Railway, connect Redis add-on
 - Deploy Next.js to Vercel, set environment variables
 
@@ -287,8 +268,7 @@ async def upload_files(
 - Set up environment variables across all services:
 ```
 NEXT_PUBLIC_API_URL=https://api.publishorperish.com
-SUPABASE_URL=...
-SUPABASE_KEY=...
+MONGODB_URI=mongodb+srv://...
 REDIS_URL=...
 GEMINI_API_KEY=...
 K2_API_KEY=...
@@ -296,7 +276,7 @@ K2_API_KEY=...
 - Set up GitHub repo, make sure all four people can push and deploy
 
 **Hours 16–24: End-to-End Testing & Integration**
-- Run full game flow end to end
+- Run full game flow end to end across all three game phases
 - Find and fix integration bugs between frontend/backend/AI
 - Make sure uploads work on prod (not just localhost)
 - Prepare demo flow for judging — know exactly what you're clicking and in what order

@@ -8,15 +8,30 @@ Expose a `/room/mock-start` endpoint early that skips ingestion and emits `game_
 
 ---
 
-## Stack & Reference Docs
+## How Your Piece Fits
+
+```
+Person 4 (upload) → triggers Celery task
+Person 2 (AI)     → writes game content to Redis → calls your callback
+Person 1 (you)    → runs state machine, emits socket events
+Person 3 (UI)     → listens to your socket events, renders game
+```
+
+You are the hub. Everyone talks through you.
+
+---
+
+## Stack
 
 | Tech | Role | Docs |
 |---|---|---|
 | FastAPI | Async HTTP + ASGI server | https://fastapi.tiangolo.com/ |
 | python-socketio | Socket.io server mounted on FastAPI | https://python-socketio.readthedocs.io/en/stable/ |
-| Redis | Ephemeral game state store | https://redis.io/docs/latest/develop/data-types/ |
-| Celery | Background task queue for AI jobs | https://docs.celeryq.dev/en/stable/ |
-| Railway | Hosting for FastAPI + Redis add-on | https://docs.railway.com/ |
+| Redis | Ephemeral game state (TTL-based, evaporates after game ends) | https://redis.io/docs/latest/develop/data-types/ |
+| Celery | Background task queue — Person 2's AI jobs run here | https://docs.celeryq.dev/en/stable/ |
+| Motor | Async MongoDB driver — used by Person 4, you read session data from it | https://motor.readthedocs.io/en/stable/ |
+| Railway | Hosts FastAPI + Redis add-on | https://docs.railway.com/ |
+| Uvicorn | ASGI server that runs FastAPI | https://www.uvicorn.org/ |
 
 ---
 
@@ -38,40 +53,37 @@ socket_app = socketio.ASGIApp(sio, app)
 # Run with: uvicorn main:socket_app --reload
 ```
 
-**Uvicorn docs:** https://www.uvicorn.org/
-
 ### 2. Connect Redis
 
-Railway's Redis add-on injects `REDIS_URL` automatically into your service's environment.
+Railway's Redis add-on injects `REDIS_URL` automatically into your service environment.
 
-**Railway Redis docs:** https://docs.railway.com/databases/redis
-**redis-py docs:** https://redis-py.readthedocs.io/en/stable/
+**redis-py async docs:** https://redis-py.readthedocs.io/en/stable/
 
 ```python
-import redis.asyncio as redis
+import redis.asyncio as aioredis
 import os
 
-r = redis.from_url(os.environ["REDIS_URL"])
+r = aioredis.from_url(os.environ["REDIS_URL"], decode_responses=True)
 ```
 
-### 3. REST Endpoints — Room Create & Join
+### 3. Room Create & Join Endpoints
 
-Plain HTTP, no sockets needed here.
-
-**FastAPI path operations docs:** https://fastapi.tiangolo.com/tutorial/path-operation-configuration/
+**FastAPI path operations:** https://fastapi.tiangolo.com/tutorial/path-operation-configuration/
 
 | Endpoint | What it does |
 |---|---|
-| `POST /room/create` | Generates a random 6-digit code, writes initial Redis keys, returns code |
-| `POST /room/join` | Validates the code exists in Redis, appends playerID to players list |
+| `POST /room/create` | Generates 6-digit code, writes initial Redis keys, returns code |
+| `POST /room/join` | Validates code exists, checks max 4 players, appends playerID |
 
 ```python
-import random, string
+import random, string, json
+from fastapi import FastAPI, HTTPException
 
 @app.post("/room/create")
-async def create_room():
+async def create_room(host_id: str):
     code = "".join(random.choices(string.digits, k=6))
     await r.set(f"room:{code}:state", "waiting")
+    await r.rpush(f"room:{code}:players", host_id)
     await r.expire(f"room:{code}:state", 86400)  # 24hr TTL
     return {"room_code": code}
 
@@ -80,6 +92,8 @@ async def join_room(room_code: str, player_id: str):
     state = await r.get(f"room:{room_code}:state")
     if not state:
         raise HTTPException(status_code=404, detail="Room not found")
+    if state != "waiting":
+        raise HTTPException(status_code=400, detail="Game already started")
     count = await r.llen(f"room:{room_code}:players")
     if count >= 4:
         raise HTTPException(status_code=400, detail="Room is full")
@@ -89,19 +103,19 @@ async def join_room(room_code: str, player_id: str):
 
 ### 4. Redis Schema
 
-All game state lives under `room:{code}:*` keys.
+All live game state lives under `room:{code}:*`. This is the single source of truth during a game. MongoDB (Person 4) stores the persistent record after the game ends.
 
-**Redis data types reference:** https://redis.io/docs/latest/develop/data-types/
-**Redis TTL/EXPIRE docs:** https://redis.io/docs/latest/commands/expire/
+**Redis data types:** https://redis.io/docs/latest/develop/data-types/
+**Redis EXPIRE/TTL:** https://redis.io/docs/latest/commands/expire/
 
 | Key | Redis type | Purpose |
 |---|---|---|
 | `room:{code}:state` | String | FSM state: `waiting \| ingesting \| playing \| voting \| ended` |
 | `room:{code}:players` | List | Ordered playerIDs — `RPUSH` to add, `LRANGE 0 -1` to read |
-| `room:{code}:impostor` | String | The one sabotaging playerID — set when game starts |
-| `room:{code}:content` | String | Serialized JSON from Person 2's AI pipeline (problem + impostor directive) |
-| `room:{code}:contributions` | Hash | `playerID → contribution text` — `HSET` / `HGETALL` |
-| `room:{code}:turn` | String | playerID whose turn it currently is |
+| `room:{code}:impostor` | String | The sabotaging playerID — set when game starts |
+| `room:{code}:content` | String | JSON from Person 2's AI pipeline: problem + impostor directive |
+| `room:{code}:contributions` | Hash | `playerID → contribution text` |
+| `room:{code}:turn` | String | playerID whose turn it is |
 | `room:{code}:votes` | Hash | `playerID → votedForID` |
 | `room:{code}:timer` | String + TTL | `SETEX room:{code}:timer 60 1` — expires to signal time's up |
 
@@ -109,7 +123,7 @@ All game state lives under `room:{code}:*` keys.
 
 ## Hours 4–10: WebSocket Event System
 
-Socket.io rooms map 1:1 to game rooms. All events are scoped to a room — players in `123456` never receive events from `789012`.
+Socket.io rooms map 1:1 to game rooms. All events are scoped — players in `123456` never receive events from `789012`.
 
 **python-socketio event handlers:** https://python-socketio.readthedocs.io/en/stable/server.html#defining-event-handlers
 **python-socketio emit to room:** https://python-socketio.readthedocs.io/en/stable/server.html#emitting-events
@@ -117,33 +131,39 @@ Socket.io rooms map 1:1 to game rooms. All events are scoped to a room — playe
 
 ### Inbound Events (client → server)
 
-| Event | Payload | What to do |
+| Event | Payload | Action |
 |---|---|---|
-| `join_room` | `{ room_code, player_id, player_name }` | Add to sio room, update Redis players list, emit `player_joined` to room |
-| `upload_complete` | `{ room_code }` | Transition `waiting → ingesting`, Celery task already kicked off by Person 4's upload endpoint |
-| `submit_contribution` | `{ room_code, player_id, content }` | Write to `room:{code}:contributions` hash, emit `contribution_update`, advance turn |
-| `call_meeting` | `{ room_code, caller_id }` | Transition `playing → voting`, emit `meeting_called` to all |
-| `cast_vote` | `{ room_code, voter_id, target_id }` | Write to `room:{code}:votes` hash, check if all votes in, tally if so |
+| `join_room` | `{ room_code, player_id, player_name }` | Enter sio room, push to Redis players list, emit `player_joined` |
+| `upload_complete` | `{ room_code }` | Transition `waiting → ingesting` |
+| `submit_contribution` | `{ room_code, player_id, content }` | Write to contributions hash, emit `contribution_update`, advance turn |
+| `call_meeting` | `{ room_code, caller_id }` | Transition `playing → voting`, emit `meeting_called` |
+| `cast_vote` | `{ room_code, voter_id, target_id }` | Write to votes hash, tally if all votes in |
 
 ### Outbound Events (server → clients)
 
 | Event | Payload | When |
 |---|---|---|
-| `player_joined` | `{ players: [...] }` | After any player joins — broadcast full updated list |
-| `game_start` | `{ problem_statement, players, first_turn }` | When AI pipeline finishes and content is in Redis |
-| `contribution_update` | `{ player_id, content, contributions_so_far }` | After each `submit_contribution` — broadcast to whole room |
-| `turn_update` | `{ current_player_id, time_remaining }` | On turn change or timer tick |
+| `player_joined` | `{ players: [...] }` | Any player joins — broadcast full updated list |
+| `game_start` | `{ problem_statement, players, first_turn }` | AI done, content in Redis — **never send impostor_directive here** |
+| `impostor_directive` | `{ directive }` | Sent privately to the impostor's socket only |
+| `contribution_update` | `{ player_id, content, contributions_so_far }` | After each submission — broadcast to whole room |
+| `turn_update` | `{ current_player_id, time_remaining }` | On turn change |
 | `meeting_called` | `{ caller_id }` | When `call_meeting` fires |
-| `vote_result` | `{ eliminated_id, was_impostor, impostor_directive, votes }` | After all votes tallied — reveal the directive on screen |
-| `elimination` | `{ player_id }` | Broadcast player removal |
+| `vote_result` | `{ eliminated_id, was_impostor, impostor_directive, votes }` | Votes tallied — reveal directive to everyone |
+| `elimination` | `{ player_id }` | Player removed |
 | `game_over` | `{ winner: "players \| impostor", impostor_id, impostor_directive }` | Win condition met |
 
 ```python
+# Track sid → player info so disconnect events know which room to clean up
+connected_players = {}  # sid → { room_code, player_id }
+
 @sio.event
 async def join_room(sid, data):
     room_code = data["room_code"]
+    player_id = data["player_id"]
     await sio.enter_room(sid, room_code)
-    await r.rpush(f"room:{room_code}:players", data["player_id"])
+    connected_players[sid] = {"room_code": room_code, "player_id": player_id}
+    await r.rpush(f"room:{room_code}:players", player_id)
     players = await r.lrange(f"room:{room_code}:players", 0, -1)
     await sio.emit("player_joined", {"players": players}, room=room_code)
 
@@ -167,6 +187,17 @@ async def cast_vote(sid, data):
     total_votes = await r.hlen(f"room:{room_code}:votes")
     if total_votes >= total_players:
         await tally_votes(room_code)
+
+@sio.event
+async def disconnect(sid):
+    info = connected_players.pop(sid, None)
+    if info:
+        room_code = info["room_code"]
+        player_id = info["player_id"]
+        await r.lrem(f"room:{room_code}:players", 0, player_id)
+        impostor = await r.get(f"room:{room_code}:impostor")
+        if player_id == impostor:
+            await sio.emit("game_over", {"winner": "players", "reason": "impostor_disconnected"}, room=room_code)
 ```
 
 ### Turn Rotation
@@ -182,10 +213,10 @@ async def advance_turn(room_code: str):
     await start_timer(room_code)
 ```
 
-### Timer (Redis TTL)
+### Timer
 
-**Redis SETEX docs:** https://redis.io/docs/latest/commands/setex/
-**asyncio tasks docs:** https://docs.python.org/3/library/asyncio-task.html
+**Redis SETEX:** https://redis.io/docs/latest/commands/setex/
+**asyncio tasks:** https://docs.python.org/3/library/asyncio-task.html
 
 ```python
 async def start_timer(room_code: str, seconds: int = 60):
@@ -205,8 +236,6 @@ async def watch_timer(room_code: str):
 
 ## Hours 10–16: Game State Machine
 
-**Python enum docs:** https://docs.python.org/3/library/enum.html
-
 ```
 waiting → ingesting → playing → voting → playing → ended
 ```
@@ -214,9 +243,9 @@ waiting → ingesting → playing → voting → playing → ended
 | Transition | Trigger |
 |---|---|
 | `waiting → ingesting` | `upload_complete` received |
-| `ingesting → playing` | Celery task done, content written to Redis |
+| `ingesting → playing` | Person 2's Celery task done, content in Redis |
 | `playing → voting` | `call_meeting` fired |
-| `voting → playing` | Vote resolved, no win condition yet |
+| `voting → playing` | Vote resolved, no winner yet |
 | `playing → ended` | Win condition met |
 
 ```python
@@ -237,29 +266,34 @@ async def transition_state(room_code: str, new_state: str):
 
 ### Vote Tallying + Reveal
 
-When votes are resolved, include the impostor's hidden directive in the payload so Person 3 can show it on the reveal screen.
-
 ```python
 async def tally_votes(room_code: str):
     votes = await r.hgetall(f"room:{room_code}:votes")
     tally = {}
     for target in votes.values():
         tally[target] = tally.get(target, 0) + 1
-    eliminated = max(tally, key=tally.get)
+
+    # Tie = no elimination, resume game
+    max_votes = max(tally.values())
+    top = [p for p, v in tally.items() if v == max_votes]
+    if len(top) > 1:
+        await r.delete(f"room:{room_code}:votes")
+        await transition_state(room_code, "playing")
+        return
+
+    eliminated = top[0]
     impostor = await r.get(f"room:{room_code}:impostor")
     was_impostor = (eliminated == impostor)
-
-    # Get impostor directive from content JSON
     content = json.loads(await r.get(f"room:{room_code}:content"))
     directive = content.get("impostor_directive", "")
 
+    await r.delete(f"room:{room_code}:votes")
     await sio.emit("vote_result", {
         "eliminated_id": eliminated,
         "was_impostor": was_impostor,
         "impostor_directive": directive,
         "votes": tally
     }, room=room_code)
-    await r.delete(f"room:{room_code}:votes")
 
     if was_impostor:
         await transition_state(room_code, "ended")
@@ -271,92 +305,107 @@ async def tally_votes(room_code: str):
     else:
         await r.lrem(f"room:{room_code}:players", 0, eliminated)
         await sio.emit("elimination", {"player_id": eliminated}, room=room_code)
-        await transition_state(room_code, "playing")
+        players = await r.lrange(f"room:{room_code}:players", 0, -1)
+        if len(players) <= 1:
+            await transition_state(room_code, "ended")
+            await sio.emit("game_over", {"winner": "impostor", "impostor_id": impostor, "impostor_directive": directive}, room=room_code)
+        else:
+            await transition_state(room_code, "playing")
 ```
 
 ### Edge Cases
 
 | Scenario | Handling |
 |---|---|
-| Player disconnects mid-game | `disconnect` event → remove from Redis players list → if impostor disconnects, end game |
-| Vote tie | No elimination — clear votes and resume playing |
-| Only 2 players left, impostor still in | Impostor wins — trigger `game_over` with `winner: "impostor"` |
-| Celery task fails | Emit error to room, reset state to `waiting` |
-
-```python
-@sio.event
-async def disconnect(sid):
-    # requires tracking sid → (room_code, player_id) in a local dict
-    pass
-```
+| Player disconnects | Remove from Redis list, if impostor → players win immediately |
+| Vote tie | Clear votes, resume playing — no elimination |
+| 2 players left, impostor still in | Impostor wins |
+| Celery task fails | Person 2 emits error → you reset state to `waiting`, emit `error` event to room |
 
 ---
 
 ## Hours 16–24: Integration
 
-### With Person 2
+### Contract with Person 2
 
-Person 2's Celery task writes finalized game JSON to `room:{code}:content`. The JSON shape:
+Person 2's Celery task writes this JSON to `room:{code}:content` when done:
 
 ```json
 {
-  "problem_statement": "...",
-  "impostor_directive": "...",
+  "problem_statement": "string — shown to all players",
+  "impostor_directive": "string — shown only to the impostor",
   "contribution_slots": 4
 }
 ```
 
-When that write happens, Person 2 should trigger a callback or you poll for it. Then:
-1. Set `room:{code}:impostor` to the assigned playerID
-2. Transition `ingesting → playing`
-3. Emit `game_start` with `problem_statement` (NOT `impostor_directive` — that's secret)
+After Person 2 writes content, they call `POST /room/game-ready?room_code=...` on your server. You then:
 
-**Celery result backend docs:** https://docs.celeryq.dev/en/stable/userguide/tasks.html#task-result-backends
+1. Read `room:{code}:content` from Redis
+2. Pick a random playerID from the players list → set as `room:{code}:impostor`
+3. Transition `ingesting → playing`
+4. Emit `game_start` to the room (problem only — no directive)
+5. Emit `impostor_directive` privately to the impostor's sid only
 
-### With Person 3
+```python
+@app.post("/room/game-ready")
+async def game_ready(room_code: str):
+    players = await r.lrange(f"room:{room_code}:players", 0, -1)
+    impostor_id = random.choice(players)
+    await r.set(f"room:{room_code}:impostor", impostor_id)
+    content = json.loads(await r.get(f"room:{room_code}:content"))
+    await transition_state(room_code, "playing")
+    await r.set(f"room:{room_code}:turn", players[0])
+    await sio.emit("game_start", {
+        "problem_statement": content["problem_statement"],
+        "players": players,
+        "first_turn": players[0]
+    }, room=room_code)
+    # Send directive privately to impostor only
+    impostor_sid = next((s for s, d in connected_players.items() if d["player_id"] == impostor_id), None)
+    if impostor_sid:
+        await sio.emit("impostor_directive", {"directive": content["impostor_directive"]}, to=impostor_sid)
+    return {"status": "game started"}
+```
 
-Person 3 needs stable event names and consistent payload shapes after Hour 10. Provide a `/room/mock-start` endpoint early:
+### Mock Endpoint for Person 3
+
+Expose this before Hour 6 so Person 3 never waits:
 
 ```python
 @app.post("/room/mock-start")
 async def mock_start(room_code: str):
     mock_content = {
-        "problem_statement": "Implement a function that returns the nth Fibonacci number.",
-        "impostor_directive": "Your implementation should fail for inputs greater than 20.",
+        "problem_statement": "Implement a binary search function. It should return the index of the target or -1 if not found.",
+        "impostor_directive": "Your implementation should fail when the target is the last element in the array.",
         "contribution_slots": 4
     }
-    await r.set(f"room:{room_code}:content", json.dumps(mock_content))
     players = await r.lrange(f"room:{room_code}:players", 0, -1)
-    await r.set(f"room:{room_code}:impostor", players[-1] if players else "mock_impostor")
+    if not players:
+        players = ["player_1", "player_2", "player_3", "player_4"]
+        for p in players:
+            await r.rpush(f"room:{room_code}:players", p)
+    await r.set(f"room:{room_code}:content", json.dumps(mock_content))
+    await r.set(f"room:{room_code}:impostor", players[-1])
     await transition_state(room_code, "playing")
+    await r.set(f"room:{room_code}:turn", players[0])
     await sio.emit("game_start", {
         "problem_statement": mock_content["problem_statement"],
         "players": players,
-        "first_turn": players[0] if players else None
+        "first_turn": players[0]
     }, room=room_code)
     return {"status": "mock game started"}
 ```
-
-### Stress Testing
-
-Open multiple browser tabs in different rooms. Verify:
-- Redis keys scoped correctly — room `111111` never bleeds into `222222`
-- Socket.io rooms isolated — events in room A don't fire in room B
-- Concurrent votes in two rooms resolve independently
-
-**python-socketio testing docs:** https://python-socketio.readthedocs.io/en/stable/server.html#testing
 
 ---
 
 ## Project Setup
 
 ```bash
-pip install fastapi uvicorn python-socketio redis celery python-dotenv
+pip install fastapi uvicorn python-socketio "redis[asyncio]" celery motor python-dotenv
 
 # .env
 REDIS_URL=redis://...
-SUPABASE_URL=...
-SUPABASE_KEY=...
+MONGODB_URI=mongodb+srv://...
 
 # Run
 uvicorn main:socket_app --reload --port 8000
