@@ -19,13 +19,14 @@ export default function ContributionFeed({ contributions, playerNames, latestPla
 
   return (
     <div className="flex flex-col gap-3 overflow-y-auto max-h-[420px] pr-1">
-      <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] sticky top-0" style={{ background: "var(--lab-surface)" }}>
+      <p className="text-[10px] font-bold tracking-widest uppercase sticky top-0 font-[family-name:var(--font-space-mono)]"
+        style={{ color: "var(--lab-text-dim)", background: "var(--lab-surface)" }}>
         LIVE DOCUMENT
       </p>
 
       {entries.length === 0 ? (
         <div className="flex items-center justify-center py-8">
-          <p className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+          <p className="text-xs font-[family-name:var(--font-space-mono)]" style={{ color: "var(--lab-text-dim)" }}>
             NO CONTRIBUTIONS YET — BE THE FIRST TO WRITE
           </p>
         </div>
@@ -42,11 +43,11 @@ export default function ContributionFeed({ contributions, playerNames, latestPla
                 borderLeft: `3px solid ${isLatest ? "var(--lab-accent)" : "var(--lab-border)"}`,
               }}
             >
-              <p className="text-[10px] font-[family-name:var(--font-space-mono)] tracking-widest mb-2" style={{ color: isLatest ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
+              <p className="text-[10px] font-[family-name:var(--font-space-mono)] tracking-widest mb-2"
+                style={{ color: isLatest ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
                 {playerNames[pid] ?? pid}
               </p>
-              <div className="prose prose-sm prose-invert max-w-none text-[var(--lab-text)] leading-relaxed"
-                style={{ fontFamily: "var(--font-fira-code)" }}>
+              <div className="markdown-body text-sm leading-relaxed" style={{ color: "var(--lab-text)" }}>
                 <ReactMarkdown>{text}</ReactMarkdown>
               </div>
             </div>
