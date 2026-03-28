@@ -28,6 +28,26 @@ from contextlib import asynccontextmanager
 import socketio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+
+class CreateRoomRequest(BaseModel):
+    player_id: str
+    player_name: str
+
+class JoinRoomRequest(BaseModel):
+    room_code: str
+    player_id: str
+    player_name: str
+
+class MockStartRequest(BaseModel):
+    room_code: str
+
+class GameReadyRequest(BaseModel):
+    room_code: str
+
+class GameFailedRequest(BaseModel):
+    room_code: str
 
 import state
 from redis_client import close_redis
@@ -78,35 +98,27 @@ connected: dict[str, dict] = {}  # sid → { room_code, player_id, player_name }
 # ── HTTP Endpoints ─────────────────────────────────────────────────────────────
 
 @app.post("/room/create")
-async def create_room(host_id: str, host_name: str):
-    """
-    WHY 6 DIGITS:
-    Easy to read aloud and type. Short enough to share verbally.
-    """
+async def create_room(body: CreateRoomRequest):
     code = "".join(random.choices(string.digits, k=6))
     while await state.room_exists(code):
         code = "".join(random.choices(string.digits, k=6))
-
-    await state.create_room(code, host_id)
+    await state.create_room(code, body.player_id)
     return {"room_code": code}
 
 
 @app.post("/room/join")
-async def join_room_http(room_code: str, player_id: str):
-    """
-    HTTP pre-check before the socket connects.
-    """
-    if not await state.room_exists(room_code):
+async def join_room_http(body: JoinRoomRequest):
+    if not await state.room_exists(body.room_code):
         raise HTTPException(status_code=404, detail="Room not found")
-    if await state.get_state(room_code) != "waiting":
+    if await state.get_state(body.room_code) != "waiting":
         raise HTTPException(status_code=400, detail="Game already in progress")
-    if await state.player_count(room_code) >= 4:
+    if await state.player_count(body.room_code) >= 4:
         raise HTTPException(status_code=400, detail="Room is full (max 4 players)")
-    return {"status": "ok", "room_code": room_code}
+    return {"status": "ok", "room_code": body.room_code}
 
 
 @app.post("/room/game-ready")
-async def game_ready(room_code: str):
+async def game_ready(body: GameReadyRequest):
     """
     Called by Person 2's Celery task when AI content is written to Redis.
     Assigns the impostor, starts the game, and notifies all players.
@@ -121,11 +133,13 @@ async def game_ready(room_code: str):
     broadcast. It goes only to the impostor's private socket connection.
     All other players receive only the problem_statement.
     """
+    room_code = body.room_code
     content = await state.get_content(room_code)
     if not content:
         raise HTTPException(status_code=400, detail="No game content in Redis yet")
 
     players = await state.get_players(room_code)
+    player_names = await state.get_player_names(room_code)
     impostor_id = await state.assign_impostor(room_code)
 
     await state.transition_state(room_code, "playing")
@@ -134,6 +148,7 @@ async def game_ready(room_code: str):
     await sio.emit("game_start", {
         "problem_statement": content["problem_statement"],
         "players": players,
+        "player_names": player_names,
     }, room=room_code)
 
     # Send directive privately to the impostor only
@@ -150,8 +165,9 @@ async def game_ready(room_code: str):
 
 
 @app.post("/room/game-failed")
-async def game_failed(room_code: str):
+async def game_failed(body: GameFailedRequest):
     """Person 2 calls this if the AI pipeline errors. Resets the room."""
+    room_code = body.room_code
     await state.transition_state(room_code, "waiting")
     await sio.emit("error", {
         "message": "AI pipeline failed. Please try uploading again."
@@ -160,7 +176,7 @@ async def game_failed(room_code: str):
 
 
 @app.post("/room/mock-start")
-async def mock_start(room_code: str):
+async def mock_start(body: MockStartRequest):
     """
     Skips AI ingestion — starts with hardcoded content immediately.
     Person 3 uses this from Hour 0 so they never wait for the real pipeline.
@@ -170,6 +186,7 @@ async def mock_start(room_code: str):
     to this and still show a working game to judges. Safety net, not just
     a dev shortcut.
     """
+    room_code = body.room_code
     mock_content = {
         "problem_statement": (
             "You are all collaborating on a markdown document that explains "
@@ -187,6 +204,7 @@ async def mock_start(room_code: str):
     if not players:
         raise HTTPException(status_code=400, detail="No players in room — join first")
 
+    player_names = await state.get_player_names(room_code)
     await state.set_content(room_code, mock_content)
     impostor_id = await state.assign_impostor(room_code)
     await state.transition_state(room_code, "ingesting")
@@ -195,6 +213,7 @@ async def mock_start(room_code: str):
     await sio.emit("game_start", {
         "problem_statement": mock_content["problem_statement"],
         "players": players,
+        "player_names": player_names,
     }, room=room_code)
 
     impostor_sid = next(
@@ -248,9 +267,12 @@ async def join_room(sid, data):
         "player_name": player_name,
     }
 
+    await state.set_player_name(room_code, player_id, player_name)
     players = await state.get_players(room_code)
+    player_names = await state.get_player_names(room_code)
     await sio.emit("player_joined", {
         "players": players,
+        "player_names": player_names,
         "player_id": player_id,
         "player_name": player_name,
     }, room=room_code)
@@ -349,17 +371,8 @@ async def cast_vote(sid, data):
 
 
 @sio.event
-async def disconnect(sid):
-    """
-    WHY HANDLE DISCONNECT EXPLICITLY:
-    If we don't remove a disconnected player from the Redis players list,
-    the vote logic will wait for their vote forever (all_votes_in compares
-    against the player list). The game would silently hang.
-
-    WHY IMPOSTOR DISCONNECT = PLAYERS WIN:
-    The impostor left rather than face the vote. Players win by default —
-    otherwise a losing impostor could just close the tab to escape.
-    """
+async def disconnect(sid, reason=None):
+    # reason param required by newer python-socketio versions
     info = connected.pop(sid, None)
     if not info:
         return
@@ -369,6 +382,11 @@ async def disconnect(sid):
 
     await state.remove_player(room_code, player_id)
     await sio.emit("player_left", {"player_id": player_id}, room=room_code)
+
+    # Only apply game-over logic if a game is actually in progress
+    current = await state.get_state(room_code)
+    if current not in ("playing", "voting"):
+        return
 
     impostor = await state.get_impostor(room_code)
     game_content = await state.get_content(room_code)
@@ -384,7 +402,6 @@ async def disconnect(sid):
         await state.transition_state(room_code, "ended")
         return
 
-    # If only the impostor remains, they win
     remaining = await state.get_players(room_code)
     if len(remaining) <= 1:
         await sio.emit("game_over", {

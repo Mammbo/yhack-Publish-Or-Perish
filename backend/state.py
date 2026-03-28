@@ -115,6 +115,14 @@ async def player_count(room_code: str) -> int:
     return await r.llen(f"room:{room_code}:players")
 
 
+async def set_player_name(room_code: str, player_id: str, name: str):
+    await r.hset(f"room:{room_code}:player_names", player_id, name)
+
+
+async def get_player_names(room_code: str) -> dict:
+    return await r.hgetall(f"room:{room_code}:player_names")
+
+
 # ── Content (AI-generated game payload) ───────────────────────────────────────
 
 async def set_content(room_code: str, content: dict):

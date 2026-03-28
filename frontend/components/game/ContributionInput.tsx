@@ -45,9 +45,9 @@ export default function ContributionInput({
           style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}
         >
           <div className="flex flex-col items-center gap-2">
-            <div className="w-3 h-3 rounded-full animate-pulse-dot" style={{ background: "var(--lab-text-dim)" }} />
+            <div className="w-3 h-3 rounded-full animate-pulse-dot" style={{ background: "var(--lab-accent)" }} />
             <p className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] tracking-wider">
-              WAITING FOR {currentPlayerName.toUpperCase()}...
+              SUBMITTING...
             </p>
           </div>
         </div>
@@ -70,7 +70,7 @@ export default function ContributionInput({
           {confirming ? (
             <div className="rounded border p-3 flex flex-col gap-3" style={{ borderColor: "var(--lab-warn)", background: "rgba(255,176,32,0.06)" }}>
               <p className="text-xs text-[var(--lab-warn)] font-[family-name:var(--font-space-mono)] tracking-wider">
-                ⚠ SUBMIT CONTRIBUTION? THIS CANNOT BE UNDONE.
+                ⚠ SUBMIT CONTRIBUTION? THIS WILL REPLACE YOUR CURRENT ENTRY.
               </p>
               <div className="flex gap-2">
                 <button

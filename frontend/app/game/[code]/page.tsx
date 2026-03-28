@@ -40,7 +40,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [callerName, setCallerName] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
-  const isMyTurn = currentTurn === myPlayerId && !submitted
+  // Collaborative model — no turns. Anyone can submit/update at any time.
+  const isMyTurn = !submitted
 
   useEffect(() => {
     const pid = localStorage.getItem("player_id") ?? ""
@@ -85,8 +86,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       setDirective(data.directive)
     })
 
-    socket.on("contribution_update", (data: { player_id: string; content: string; contributions_so_far: Record<string, string> }) => {
-      setContributions(data.contributions_so_far)
+    socket.on("contribution_update", (data: { player_id: string; contributions: Record<string, string> }) => {
+      setContributions(data.contributions)
       setLatestContributor(data.player_id)
       setSubmitted(false)
     })
