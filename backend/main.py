@@ -49,6 +49,9 @@ class GameReadyRequest(BaseModel):
 class GameFailedRequest(BaseModel):
     room_code: str
 
+class RestartRequest(BaseModel):
+    room_code: str
+
 import state
 from redis_client import close_redis
 from db import sessions_col
@@ -241,6 +244,37 @@ async def mock_start(body: MockStartRequest):
         }, to=impostor_sid)
 
     return {"status": "mock game started", "impostor": impostor_id}
+
+
+@app.post("/room/restart")
+async def restart_room(body: RestartRequest):
+    """
+    Resets a finished game so the same 4 players can play again.
+    Rebuilds the player list from currently-connected sockets (avoids the
+    problem where disconnect() removed players from Redis during game-over).
+    Bypasses the FSM with a direct set because "ended" has no valid transitions.
+    """
+    room_code = body.room_code
+
+    # Rebuild player list from live socket connections in this room
+    current = [(d["player_id"], d["player_name"]) for d in connected.values() if d["room_code"] == room_code]
+
+    await state.r.delete(f"room:{room_code}:players")
+    await state.r.delete(f"room:{room_code}:player_names")
+    await state.r.delete(f"room:{room_code}:contributions")
+    await state.r.delete(f"room:{room_code}:votes")
+    await state.r.delete(f"room:{room_code}:impostor")
+    await state.r.delete(f"room:{room_code}:content")
+
+    for pid, pname in current:
+        await state.add_player(room_code, pid)
+        await state.set_player_name(room_code, pid, pname)
+
+    # Direct set — FSM doesn't allow ended → waiting
+    await state.r.set(f"room:{room_code}:state", "waiting")
+
+    await sio.emit("game_restart", {"room_code": room_code}, room=room_code)
+    return {"status": "restarted", "players": len(current)}
 
 
 # ── Socket.io Events ───────────────────────────────────────────────────────────

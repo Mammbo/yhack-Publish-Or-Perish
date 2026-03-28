@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import { initStringTune } from "@/lib/stringtune"
+import { getSocket } from "@/lib/socket"
 import SpyReveal from "@/components/results/SpyReveal"
 import DirectiveExpose from "@/components/results/DirectiveExpose"
 import { VoteResult, GameOverPayload, MOCK_VOTE_RESULT } from "@/types/game"
@@ -35,6 +36,16 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
       if (parsed.player_names) setPlayerNames(parsed.player_names)
     }
 
+    // Stay connected so we receive game_restart from other players
+    const socket = getSocket()
+    if (!socket.connected) socket.connect()
+    socket.on("game_restart", () => {
+      sessionStorage.removeItem("vote_result")
+      sessionStorage.removeItem("game_over")
+      sessionStorage.removeItem("game_start")
+      router.push(`/room/${code}`)
+    })
+
     // Cinematic reveal sequence
     const timings: [Phase, number][] = [
       [1, 500],    // Phase 1: "EXPERIMENT COMPLETE"
@@ -46,8 +57,11 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
     const timeouts = timings.map(([phase, delay]) =>
       setTimeout(() => setRevealPhase(phase), delay)
     )
-    return () => timeouts.forEach(clearTimeout)
-  }, [])
+    return () => {
+      timeouts.forEach(clearTimeout)
+      socket.off("game_restart")
+    }
+  }, [code, router])
 
   const impostorId = result?.eliminated_id ?? gameOver?.impostor_id ?? ""
   const impostorName = playerNames[impostorId] ?? impostorId ?? "Unknown"
@@ -55,9 +69,13 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
   const wasImpostorCaught = result?.was_impostor ?? (gameOver?.winner === "players")
   const playersWon = wasImpostorCaught
 
-  function startNewGame() {
-    sessionStorage.clear()
-    router.push("/")
+  async function startNewGame() {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/restart`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: code }),
+    }).catch(() => {})
+    // game_restart socket event will navigate everyone including this tab
   }
 
   return (
