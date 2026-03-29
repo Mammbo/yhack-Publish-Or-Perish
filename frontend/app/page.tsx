@@ -45,17 +45,9 @@ export default function LandingPage() {
       {/* Content */}
       <div className="relative z-10 w-full max-w-4xl mx-auto px-6 flex flex-col items-center gap-10">
         {/* Title */}
-        <BorderGlow
-          backgroundColor="#111822"
-          borderRadius={12}
-          glowRadius={50}
-          glowIntensity={0.7}
-          colors={["#00DFA2", "#3399FF"]}
-          fillOpacity={0.3}
-        >
-        <div className="flex flex-col items-center gap-2 text-center w-full px-10 py-8">
+        <div className="flex flex-col items-center gap-2 text-center w-full">
           <h1
-            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-[68px] md:text-[80px] font-semibold text-[var(--lab-text)]"
+            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-[68px] md:text-[80px] font-semibold text-[var(--lab-text)] mt-6"
             style={{ fontVariationSettings: "'GRAD' 140", textShadow: "0 0 40px var(--lab-accent-dim)" }}
           >
             PUBLISH
@@ -69,7 +61,7 @@ export default function LandingPage() {
           </span>
 
           {/* PERISH — ASCIIText effect */}
-          <div className="relative w-full" style={{ height: "clamp(120px, 18vw, 200px)" }}>
+          <div className="relative w-full -mt-6" style={{ height: "clamp(120px, 18vw, 200px)" }}>
             <ASCIIText
               text="PERISH"
               asciiFontSize={6}
@@ -79,9 +71,7 @@ export default function LandingPage() {
               enableWaves
             />
           </div>
-
         </div>
-        </BorderGlow>
 
         <BorderGlow
           backgroundColor="#111822"
