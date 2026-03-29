@@ -69,7 +69,7 @@ export default function ContributionInput({
           />
 
           {confirming ? (
-            <div className="rounded border p-3 flex flex-col gap-3" style={{ borderColor: "var(--lab-warn)", background: "rgba(255,176,32,0.06)" }}>
+            <div className="rounded border p-3 flex flex-col gap-3" style={{ borderColor: "var(--lab-warn)", background: "var(--lab-surface-hi)" }}>
               <p className="text-xs text-[var(--lab-warn)] font-[family-name:var(--font-space-mono)] tracking-wider">
                 ⚠ SUBMIT CONTRIBUTION? THIS WILL REPLACE YOUR CURRENT ENTRY.
               </p>

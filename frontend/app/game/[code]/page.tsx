@@ -225,13 +225,13 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         showMeetingBtn={phase === "playing"}
       />
 
-      <div className="flex-1 flex flex-col gap-4 p-4 md:p-6 max-w-5xl mx-auto w-full">
+      <div className="relative z-10 flex-1 flex flex-col gap-4 p-4 md:p-6 max-w-5xl mx-auto w-full">
         {isImpostor && directive && <ImpostorBanner directive={directive} />}
 
         <ProblemDisplay problem={problem} />
 
         {/* Live contributions — everyone's entries visible at all times */}
-        <div className="rounded border p-4" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
+        <div className="rounded border p-4" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface-hi)" }}>
           <ContributionFeed
             contributions={contributions}
             playerNames={playerNames}
@@ -242,7 +242,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         {/* Always-open input — collaborative, no turns */}
         <div
           className="rounded border p-4 flex flex-col gap-3"
-          style={{ borderColor: "var(--lab-accent)", background: "var(--lab-surface)", boxShadow: "0 0 12px var(--lab-accent-dim)" }}
+          style={{ borderColor: "var(--lab-accent)", background: "var(--lab-surface-hi)", boxShadow: "0 0 12px var(--lab-accent-dim)" }}
         >
           <p className="text-[10px] font-bold tracking-widest uppercase font-[family-name:var(--font-space-mono)]" style={{ color: "var(--lab-text-dim)" }}>
             YOUR CONTRIBUTION

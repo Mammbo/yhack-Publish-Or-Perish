@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic"
 
-const LiquidEther = dynamic(() => import("@/components/ui/LiquidEther"), { ssr: false })
+const Dither = dynamic(() => import("@/components/ui/Dither"), { ssr: false })
 
 interface FluidBackgroundProps {
   speed?: "normal" | "slow"
@@ -13,26 +13,18 @@ export default function FluidBackground({ speed = "normal" }: FluidBackgroundPro
 
   return (
     <div
-      className="fixed inset-0 pointer-events-none z-0"
-      style={{ opacity: 0.4 }}
+      className="fixed inset-0 pointer-events-none z-[5]"
+      style={{ opacity: isSlow ? 0.65 : 0.85 }}
     >
-      <LiquidEther
-        colors={["#00DFA2", "#0B1018", "#182030"]}
-        mouseForce={isSlow ? 5 : 20}
-        cursorSize={isSlow ? 60 : 100}
-        isViscous
-        viscous={isSlow ? 40 : 21}
-        iterationsViscous={isSlow ? 16 : 32}
-        iterationsPoisson={isSlow ? 16 : 32}
-        resolution={isSlow ? 0.3 : 0.5}
-        isBounce={false}
-        autoDemo
-        autoSpeed={isSlow ? 0.15 : 0.5}
-        autoIntensity={isSlow ? 0.8 : 2.2}
-        takeoverDuration={0.25}
-        autoResumeDelay={3000}
-        autoRampDuration={0.6}
-        style={{ width: "100%", height: "100%" }}
+      <Dither
+        waveColor={[0.0, 0.87, 0.64]}
+        disableAnimation={false}
+        enableMouseInteraction
+        mouseRadius={0.5}
+        colorNum={4}
+        waveAmplitude={0.3}
+        waveFrequency={3}
+        waveSpeed={isSlow ? 0.02 : 0.04}
       />
     </div>
   )

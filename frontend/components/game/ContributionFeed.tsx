@@ -54,9 +54,7 @@ export default function ContributionFeed({
                 borderColor: isLatest
                   ? "var(--lab-accent)"
                   : "var(--lab-border)",
-                background: isLatest
-                  ? "rgba(0,223,162,0.04)"
-                  : "var(--lab-surface-hi)",
+                background: "var(--lab-surface)",
                 borderLeft: `3px solid ${isLatest ? "var(--lab-accent)" : "var(--lab-border)"}`,
               }}
             >

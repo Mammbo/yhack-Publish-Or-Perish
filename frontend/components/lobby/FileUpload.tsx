@@ -79,7 +79,7 @@ export default function FileUpload({ roomCode, onUploadComplete }: FileUploadPro
     <div className="flex flex-col gap-4">
       {/* Drop zone */}
       <BorderGlow
-        backgroundColor={dragging ? "rgba(0,223,162,0.05)" : "#111822"}
+        backgroundColor={dragging ? "#0D1F18" : "#111822"}
         borderRadius={8}
         glowRadius={40}
         glowIntensity={dragging ? 1.2 : 0.7}
