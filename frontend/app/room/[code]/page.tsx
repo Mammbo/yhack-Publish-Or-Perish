@@ -121,30 +121,22 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   async function beginExperiment() {
     if (isDemo) { startDemo(); return }
-    // Fallback: if game_start socket never arrives within 5s, go demo
-    gameStartFallback.current = setTimeout(startDemo, 5000)
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/mock-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ room_code: code }),
       })
-      if (!res.ok) {
-        clearTimeout(gameStartFallback.current)
-        startDemo()
-      }
-      // else: wait for game_start socket event (fallback timer covers the miss case)
+      if (!res.ok) startDemo()
+      // on success: wait for game_start socket event
     } catch {
-      clearTimeout(gameStartFallback.current)
       startDemo()
     }
   }
 
   const isHost = myPlayerId === hostId || players.length === 0
   const uploadDone = phase === "ingesting"
-  // Only let host manually start if pipeline failed (pipelineFailed state)
-  // or in demo mode. While "ingesting", the pipeline auto-starts the game.
-  const canStart = (players.length >= 4 && uploadDone && pipelineFailed) || isDemo
+  const canStart = (players.length >= 4 && uploadDone) || isDemo
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
@@ -278,7 +270,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                     ? `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
                     : !uploadDone
                       ? "UPLOAD MATERIALS FIRST"
-                      : "AI PROCESSING — STAND BY..."
+                      : `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
                 }
               </button>
             </BorderGlow>
