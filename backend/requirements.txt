@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+python-socketio
+redis
+celery
+motor
+python-dotenv
+python-multipart
+httpx
