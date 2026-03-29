@@ -264,7 +264,9 @@ async def mock_start(body: MockStartRequest):
     player_names = await state.get_player_names(room_code)
     await state.set_content(room_code, mock_content)
     impostor_id = await state.assign_impostor(room_code)
-    await state.transition_state(room_code, "ingesting")
+    current = await state.get_state(room_code)
+    if current == "waiting":
+        await state.transition_state(room_code, "ingesting")
     await state.transition_state(room_code, "playing")
 
     await sio.emit(
