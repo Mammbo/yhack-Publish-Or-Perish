@@ -25,12 +25,9 @@ import json
 import os
 import random
 import string
-import sys
+import traceback
 from contextlib import asynccontextmanager
 from typing import List
-
-# Make the repo root importable so ai_pipeline/* works from the backend service
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import socketio
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -299,30 +296,75 @@ async def mock_start(body: MockStartRequest):
 
 async def run_ai_pipeline(room_code: str, saved_files: list):
     """
-    Runs the full AI pipeline in a thread pool so blocking Gemini/file-IO
-    calls don't stall the event loop. Replaces the Celery worker entirely —
-    everything runs in-process, no BACKEND_URL round-trip needed.
+    Calls Gemini directly — no ai_pipeline imports, no path tricks.
+    Extracts text from uploaded files, sends it to Gemini, gets back
+    game content, and starts the game. Runs in a thread so it doesn't
+    block the event loop.
     """
     try:
         def _pipeline():
-            from ai_pipeline.extract import extract_text, chunk_text
-            from ai_pipeline.gemini import (
-                classify_and_build_search_prompt,
-                gemini_search,
-                generate_game,
-            )
-            all_chunks = []
+            import re
+            import httpx as _httpx
+
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
+            if not gemini_key:
+                raise ValueError("GEMINI_API_KEY is not set in the backend environment")
+
+            # ── Extract text from uploaded files ─────────────────────────────
+            all_text = ""
             for f in saved_files:
-                text = extract_text(f["path"], f["type"])
-                all_chunks.extend(chunk_text(text, source=f["name"]))
-            if not all_chunks:
-                raise ValueError("No text extracted from uploaded files")
-            classification = classify_and_build_search_prompt(all_chunks)
-            research = gemini_search(
-                search_prompt=classification["gemini_search_prompt"],
-                subject=classification["subject"],
+                try:
+                    if f["type"] == "pdf":
+                        import fitz  # pymupdf
+                        doc = fitz.open(f["path"])
+                        for page in doc:
+                            all_text += page.get_text() + "\n"
+                    elif f["type"] == "pptx":
+                        from pptx import Presentation
+                        prs = Presentation(f["path"])
+                        for slide in prs.slides:
+                            for shape in slide.shapes:
+                                if hasattr(shape, "text"):
+                                    all_text += shape.text + "\n"
+                    elif f["type"] == "docx":
+                        from docx import Document
+                        doc = Document(f["path"])
+                        for para in doc.paragraphs:
+                            all_text += para.text + "\n"
+                    else:  # txt, md
+                        with open(f["path"], encoding="utf-8", errors="ignore") as fp:
+                            all_text += fp.read() + "\n"
+                except Exception as e:
+                    print(f"[pipeline] Could not extract {f['name']}: {e}")
+
+            if not all_text.strip():
+                raise ValueError("No text could be extracted from the uploaded files")
+
+            # ── Single Gemini call to generate game content ───────────────────
+            prompt = (
+                "You are creating content for a 4-player educational impostor game.\n\n"
+                "Below are study notes. Read them and generate a collaborative problem "
+                "based on the actual subject matter in the notes.\n\n"
+                f"NOTES:\n{all_text[:6000]}\n\n"
+                "Return ONLY a JSON object with exactly these fields:\n"
+                '{\n'
+                '  "problem_statement": "A 2-3 sentence collaborative problem based on these notes. '
+                'Each player will contribute one part. Be specific to the subject.",\n'
+                '  "impostor_directive": "A 1-2 sentence instruction for the impostor that looks '
+                'legitimate but contains one subtle factual error from this subject."\n'
+                '}'
             )
-            return generate_game(classification, research, 4)
+
+            resp = _httpx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+                params={"key": gemini_key},
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                timeout=90,
+            )
+            resp.raise_for_status()
+            raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            clean = re.sub(r"```json|```", "", raw).strip()
+            return json.loads(clean)
 
         game_payload = await asyncio.to_thread(_pipeline)
 
@@ -355,7 +397,6 @@ async def run_ai_pipeline(room_code: str, saved_files: list):
             )
 
     except Exception as exc:
-        import traceback
         print(f"[pipeline] Error for room {room_code}: {exc}")
         traceback.print_exc()
         try:
