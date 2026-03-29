@@ -34,7 +34,7 @@ export default function ContributionFeed({ contributions, playerNames, latestPla
         entries.map(([pid, text]) => {
           const isLatest = pid === latestPlayerId
           return (
-            <div
+            <BorderGlow
               key={pid}
               className="rounded border p-4 transition-colors"
               style={{

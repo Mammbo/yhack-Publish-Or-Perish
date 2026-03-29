@@ -2,6 +2,7 @@
 
 import Timer from "./Timer"
 import StatusBadge from "./StatusBadge"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 interface LabHeaderProps {
   roomCode?: string
@@ -24,7 +25,7 @@ export default function LabHeader({
       style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}
     >
       <div className="flex items-center gap-4">
-        <span className="font-[family-name:var(--font-space-mono)] text-[var(--lab-accent)] text-sm font-bold tracking-widest">
+        <span className="font-[family-name:var(--font-mono)] text-[var(--lab-accent)] text-sm font-bold tracking-widest">
           PUBLISH<span className="text-[var(--lab-text-dim)]"> OR </span>PERISH
         </span>
         {roomCode && (
@@ -43,24 +44,36 @@ export default function LabHeader({
       <div className="flex items-center gap-4">
         {timerSeconds != null && <Timer seconds={timerSeconds} />}
         {showMeetingBtn && onCallMeeting && (
-          <button
-            onClick={onCallMeeting}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold tracking-widest uppercase border rounded transition-colors cursor-pointer font-[family-name:var(--font-space-mono)]"
-            style={{
-              borderColor: "var(--lab-danger)",
-              color: "var(--lab-danger)",
-              background: "var(--lab-danger-dim)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "rgba(255,51,85,0.15)"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "var(--lab-danger-dim)"
-            }}
+          <BorderGlow
+            backgroundColor="transparent"
+            borderRadius={6}
+            glowRadius={20}
+            glowIntensity={1.0}
+            colors={["#FF3355", "#FF5577", "#FF2244"]}
+            fillOpacity={0.2}
           >
-            <span className="animate-pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--lab-danger)] inline-block" />
-            CALL LAB MEETING
-          </button>
+            <button
+              data-string="magnetic"
+              data-string-radius="200"
+              data-string-strength="0.6"
+              onClick={onCallMeeting}
+              className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold tracking-widest uppercase border rounded transition-colors cursor-pointer font-[family-name:var(--font-mono)]"
+              style={{
+                borderColor: "var(--lab-danger)",
+                color: "var(--lab-danger)",
+                background: "var(--lab-danger-dim)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(255,51,85,0.15)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--lab-danger-dim)"
+              }}
+            >
+              <span className="animate-pulse-dot w-1.5 h-1.5 rounded-full bg-[var(--lab-danger)] inline-block" />
+              CALL LAB MEETING
+            </button>
+          </BorderGlow>
         )}
       </div>
     </header>

@@ -1,0 +1,33 @@
+.border-glow {
+  position: relative;
+  isolation: isolate;
+}
+
+.border-glow-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    var(--bg-glow-size, 120px) circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    var(--bg-glow-color, #00DFA2),
+    transparent
+  );
+  opacity: var(--bg-glow-opacity, 0);
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.border-glow-fill {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.border-glow-children {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+}

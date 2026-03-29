@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, use } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getSocket } from "@/lib/socket"
+import { initStringTune } from "@/lib/stringtune"
 import { VoteResult, MOCK_CONTRIBUTIONS } from "@/types/game"
 import LabHeader from "@/components/shared/LabHeader"
 import ImpostorBanner from "@/components/game/ImpostorBanner"
@@ -10,6 +11,7 @@ import ProblemDisplay from "@/components/game/ProblemDisplay"
 import ContributionFeed from "@/components/game/ContributionFeed"
 import PlayerStatusBar from "@/components/game/PlayerStatusBar"
 import MeetingModal from "@/components/meeting/MeetingModal"
+import FluidBackground from "@/components/shared/FluidBackground"
 
 interface GameData {
   problem_statement: string
@@ -186,6 +188,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
+      <FluidBackground speed="slow" />
+
       <LabHeader
         roomCode={code}
         phase={phase}
@@ -267,7 +271,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         />
       )}
 
-      <footer className="px-6 py-2 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
+      <footer className="relative z-10 px-6 py-2 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
         POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS · YHACK 2026
       </footer>
     </div>

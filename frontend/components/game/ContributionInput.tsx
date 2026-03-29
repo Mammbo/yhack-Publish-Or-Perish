@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 interface ContributionInputProps {
   isMyTurn: boolean
@@ -35,7 +36,7 @@ export default function ContributionInput({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[10px] font-bold tracking-widest uppercase font-[family-name:var(--font-space-mono)]" style={{ color: "var(--lab-text-dim)" }}>
+      <p className="text-[10px] font-bold tracking-widest uppercase font-[family-name:var(--font-mono)]" style={{ color: "var(--lab-text-dim)" }}>
         YOUR CONTRIBUTION
       </p>
 
@@ -58,7 +59,7 @@ export default function ContributionInput({
             onChange={(e) => setInput(e.target.value)}
             disabled={disabled || confirming}
             placeholder="Write your contribution to the experiment..."
-            className="w-full px-3 py-3 rounded text-sm outline-none resize-none min-h-[140px] transition-colors font-[family-name:var(--font-fira-code)] leading-relaxed"
+            className="w-full px-3 py-3 rounded text-sm outline-none resize-none min-h-[140px] transition-colors font-[family-name:var(--font-mono)] leading-relaxed"
             style={{
               background: "var(--lab-surface)",
               border: `1px solid var(--lab-accent)`,
@@ -75,14 +76,14 @@ export default function ContributionInput({
               <div className="flex gap-2">
                 <button
                   onClick={handleConfirm}
-                  className="flex-1 py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer font-[family-name:var(--font-space-mono)]"
+                  className="flex-1 py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer font-[family-name:var(--font-mono)]"
                   style={{ background: "var(--lab-accent)", color: "var(--lab-void)", border: "none" }}
                 >
                   CONFIRM
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="flex-1 py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer font-[family-name:var(--font-space-mono)]"
+                  className="flex-1 py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer font-[family-name:var(--font-mono)]"
                   style={{ background: "transparent", color: "var(--lab-text-dim)", border: "1px solid var(--lab-border-hi)" }}
                 >
                   CANCEL
@@ -90,16 +91,28 @@ export default function ContributionInput({
               </div>
             </div>
           ) : (
-            <button
-              onClick={handleSubmitClick}
-              disabled={!input.trim() || disabled}
-              className="w-full py-2.5 rounded text-sm font-bold tracking-widest uppercase transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-space-mono)]"
-              style={{ background: "var(--lab-accent)", color: "var(--lab-void)", border: "none" }}
-              onMouseEnter={(e) => { if (!disabled && input.trim()) e.currentTarget.style.boxShadow = "0 0 20px var(--lab-accent-dim)" }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+            <BorderGlow
+              backgroundColor="transparent"
+              borderRadius={6}
+              glowRadius={20}
+              glowIntensity={1.0}
+              colors={["#00DFA2", "#00E89C", "#00B87A"]}
+              fillOpacity={0.2}
             >
-              SUBMIT CONTRIBUTION →
-            </button>
+              <button
+                data-string="magnetic"
+                data-string-radius="250"
+                data-string-strength="0.5"
+                onClick={handleSubmitClick}
+                disabled={!input.trim() || disabled}
+                className="w-full py-2.5 rounded text-sm font-bold tracking-widest uppercase transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-mono)]"
+                style={{ background: "var(--lab-accent)", color: "var(--lab-void)", border: "none" }}
+                onMouseEnter={(e) => { if (!disabled && input.trim()) e.currentTarget.style.boxShadow = "0 0 20px var(--lab-accent-dim)" }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+              >
+                SUBMIT CONTRIBUTION →
+              </button>
+            </BorderGlow>
           )}
         </>
       )}

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { getSocket } from "@/lib/socket"
 import { VoteResult } from "@/types/game"
-import CornerMarkers from "@/components/shared/CornerMarkers"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 interface MeetingModalProps {
   roomCode: string
@@ -60,7 +60,6 @@ export default function MeetingModal({
     setVotedFor(targetId)
 
     if (isDemo) {
-      // Simulate vote result after 2s
       setTimeout(() => {
         const result: VoteResult = {
           eliminated_id: targetId,
@@ -80,25 +79,30 @@ export default function MeetingModal({
       className="fixed inset-0 z-50 flex items-center justify-center animate-meeting-flash"
       style={{ background: "rgba(6,10,15,0.92)" }}
     >
-      <CornerMarkers
-        color="var(--lab-danger)"
-        className="w-full max-w-lg mx-4 rounded border p-8 flex flex-col gap-6 animate-slide-up"
-        style={{ borderColor: "var(--lab-danger)", background: "var(--lab-surface)" } as React.CSSProperties}
+      <BorderGlow
+        backgroundColor="#111822"
+        borderRadius={8}
+        glowRadius={40}
+        glowIntensity={0.9}
+        colors={["#FF3355", "#FF5577", "#FF2244"]}
+        fillOpacity={0.3}
+        className="w-full max-w-lg mx-4 animate-slide-up"
       >
-        {/* Header */}
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full animate-pulse-danger" style={{ background: "var(--lab-danger)" }} />
-            <span className="font-[family-name:var(--font-space-mono)] text-sm font-bold tracking-widest uppercase" style={{ color: "var(--lab-danger)" }}>
-              ⚠ LAB MEETING CALLED
-            </span>
+        <div className="p-8 flex flex-col gap-6">
+          {/* Header */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full animate-pulse-danger" style={{ background: "var(--lab-danger)" }} />
+              <span className="font-[family-name:var(--font-mono)] text-sm font-bold tracking-widest uppercase" style={{ color: "var(--lab-danger)" }}>
+                ⚠ LAB MEETING CALLED
+              </span>
+            </div>
+            {callerName && (
+              <p className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
+                CALLED BY: {callerName.toUpperCase()}
+              </p>
+            )}
           </div>
-          {callerName && (
-            <p className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
-              CALLED BY: {callerName.toUpperCase()}
-            </p>
-          )}
-        </div>
 
         {/* Timer + vote progress */}
         <div className="flex flex-col gap-2">
@@ -124,16 +128,12 @@ export default function MeetingModal({
           </div>
         </div>
 
-        {/* Vote cards */}
-        {voted ? (
-          <div className="flex flex-col items-center gap-3 py-4">
-            <div className="w-6 h-6 rounded-full animate-pulse-dot" style={{ background: "var(--lab-accent)" }} />
-            <p className="text-sm font-[family-name:var(--font-space-mono)] tracking-wider" style={{ color: "var(--lab-accent)" }}>
-              VOTE CAST — WAITING FOR OTHERS...
-            </p>
-            {votedFor && (
-              <p className="text-xs text-[var(--lab-text-dim)]">
-                You voted for: {playerNames[votedFor] ?? votedFor}
+          {/* Vote cards */}
+          {voted ? (
+            <div className="flex flex-col items-center gap-3 py-4">
+              <div className="w-6 h-6 rounded-full animate-pulse-dot" style={{ background: "var(--lab-accent)" }} />
+              <p className="text-sm font-[family-name:var(--font-mono)] tracking-wider" style={{ color: "var(--lab-accent)" }}>
+                VOTE CAST — WAITING FOR OTHERS...
               </p>
             )}
           </div>
@@ -152,35 +152,12 @@ export default function MeetingModal({
                       {isMe && <span className="text-[10px] text-[var(--lab-text-dim)] ml-2">(YOU)</span>}
                     </span>
                   </div>
-                  {!isMe && (
-                    <button
-                      onClick={() => castVote(pid)}
-                      className="w-full py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer transition-colors font-[family-name:var(--font-space-mono)]"
-                      style={{
-                        background: "var(--lab-danger-dim)",
-                        color: "var(--lab-danger)",
-                        border: "1px solid var(--lab-danger)",
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,51,85,0.2)" }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = "var(--lab-danger-dim)" }}
-                    >
-                      VOTE
-                    </button>
-                  )}
-                  {isMe && (
-                    <div
-                      className="w-full py-1.5 rounded text-xs text-center tracking-widest uppercase font-[family-name:var(--font-space-mono)]"
-                      style={{ color: "var(--lab-text-dim)", border: "1px solid var(--lab-border)" }}
-                    >
-                      YOU
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </CornerMarkers>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </BorderGlow>
     </div>
   )
 }

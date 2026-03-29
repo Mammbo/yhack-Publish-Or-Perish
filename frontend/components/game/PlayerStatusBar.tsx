@@ -17,7 +17,7 @@ export default function PlayerStatusBar({
 }: PlayerStatusBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-4 py-3 px-4 border rounded" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
-      <span className="text-[9px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+      <span className="text-[9px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
         TEAM:
       </span>
       {players.map((pid) => {
@@ -39,7 +39,7 @@ export default function PlayerStatusBar({
               }}
             />
             <span
-              className="text-xs font-[family-name:var(--font-space-mono)]"
+              className="text-xs font-[family-name:var(--font-mono)]"
               style={{
                 color: isEliminated
                   ? "var(--lab-text-dim)"
@@ -53,7 +53,7 @@ export default function PlayerStatusBar({
               {name}{isMe ? " (YOU)" : ""}
             </span>
             {isActive && (
-              <span className="text-[9px] tracking-widest text-[var(--lab-accent)] font-[family-name:var(--font-space-mono)]">
+              <span className="text-[9px] tracking-widest text-[var(--lab-accent)] font-[family-name:var(--font-mono)]">
                 ◀ TURN
               </span>
             )}
