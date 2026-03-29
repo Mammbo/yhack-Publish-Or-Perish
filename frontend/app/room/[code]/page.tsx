@@ -147,9 +147,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
             glowIntensity={0.7}
             colors={["#00DFA2", "#3399FF"]}
             fillOpacity={0.3}
-            className="p-5"
+            className=""
           >
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 p-8">
               <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
                 LAB ACCESS CODE
               </p>
@@ -213,13 +213,6 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-px" style={{ background: "var(--lab-border)" }} />
-              <span className="text-[10px] font-[family-name:var(--font-mono)] text-[var(--lab-text-dim)] tracking-wider px-2">
-                {players.length} RESEARCHER{players.length !== 1 ? "S" : ""} CONNECTED
-              </span>
-              <div className="flex-1 h-px" style={{ background: "var(--lab-border)" }} />
-            </div>
           </div>
 
           {/* Begin button (host only) */}
@@ -289,7 +282,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       </div>
 
       {/* Footer */}
-      <footer className="relative z-10 px-6 py-3 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
+      <footer className="relative z-10 px-6 py-3 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
         POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS · YHACK 2026
       </footer>
     </div>
