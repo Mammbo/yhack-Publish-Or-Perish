@@ -28,6 +28,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [myPlayerId, setMyPlayerId] = useState("")
   const [myPlayerName, setMyPlayerName] = useState("")
   const [isConnected, setIsConnected] = useState(false)
+  const [pipelineFailed, setPipelineFailed] = useState(false)
 
   const hostId = players[0]?.id ?? ""
 
@@ -83,12 +84,16 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       router.push(`/game/${code}`)
     })
 
+    // Pipeline failed — let the host override with mock content
+    socket.on("error", () => setPipelineFailed(true))
+
     return () => {
       socket.off("connect")
       socket.off("disconnect")
       socket.off("player_joined")
       socket.off("upload_complete")
       socket.off("game_start")
+      socket.off("error")
     }
   }, [code, router, isDemo])
 
@@ -137,7 +142,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const isHost = myPlayerId === hostId || players.length === 0
   const uploadDone = phase === "ingesting"
-  const canStart = (players.length >= 4 && uploadDone) || isDemo
+  // Only let host manually start if pipeline failed (pipelineFailed state)
+  // or in demo mode. While "ingesting", the pipeline auto-starts the game.
+  const canStart = (players.length >= 4 && uploadDone && pipelineFailed) || isDemo
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
@@ -269,7 +276,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                   ? "BEGIN EXPERIMENT →"
                   : players.length < 4
                     ? `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
-                    : "UPLOAD MATERIALS FIRST"
+                    : !uploadDone
+                      ? "UPLOAD MATERIALS FIRST"
+                      : "AI PROCESSING — STAND BY..."
                 }
               </button>
             </BorderGlow>
