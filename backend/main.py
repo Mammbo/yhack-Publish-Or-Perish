@@ -30,7 +30,7 @@ from contextlib import asynccontextmanager
 from typing import List
 
 import socketio
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -423,7 +423,7 @@ async def run_ai_pipeline(room_code: str, saved_files: list):
 
 
 @app.post("/upload")
-async def upload_files(room_code: str, files: List[UploadFile] = File(...)):
+async def upload_files(room_code: str = Form(...), files: List[UploadFile] = File(...)):
     if not await state.room_exists(room_code):
         raise HTTPException(status_code=404, detail="Room not found")
 
