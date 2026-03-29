@@ -90,7 +90,7 @@ export default function MeetingModal({
       >
         <div className="p-8 flex flex-col gap-6">
           {/* Header */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 rounded border p-3" style={{ borderColor: "var(--lab-danger)", background: "var(--lab-surface-hi)" }}>
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full animate-pulse-danger" style={{ background: "var(--lab-danger)" }} />
               <span className="font-[family-name:var(--font-mono)] text-sm font-bold tracking-widest uppercase" style={{ color: "var(--lab-danger)" }}>
@@ -105,7 +105,7 @@ export default function MeetingModal({
           </div>
 
         {/* Timer + vote progress */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 rounded border p-3" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface-hi)" }}>
           <div className="flex items-center justify-between">
             <p className="text-xs text-[var(--lab-text-dim)]">Vote to eliminate a researcher</p>
             <span
@@ -130,7 +130,7 @@ export default function MeetingModal({
 
           {/* Vote cards */}
           {voted ? (
-            <div className="flex flex-col items-center gap-3 py-4">
+            <div className="flex flex-col items-center gap-3 py-4 rounded border" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface-hi)" }}>
               <div className="w-6 h-6 rounded-full animate-pulse-dot" style={{ background: "var(--lab-accent)" }} />
               <p className="text-sm font-[family-name:var(--font-mono)] tracking-wider" style={{ color: "var(--lab-accent)" }}>
                 VOTE CAST — WAITING FOR OTHERS...

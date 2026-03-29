@@ -8,6 +8,7 @@ const ASCIIText = dynamic(() => import("@/components/ui/ASCIIText"), { ssr: fals
 import CreateRoom from "@/components/landing/CreateRoom"
 import JoinRoom from "@/components/landing/JoinRoom"
 import FluidBackground from "@/components/shared/FluidBackground"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 export default function LandingPage() {
   useEffect(() => {
@@ -46,50 +47,56 @@ export default function LandingPage() {
         {/* Title */}
         <div className="flex flex-col items-center gap-2 text-center w-full">
           <h1
-            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-5xl md:text-6xl font-semibold text-[var(--lab-text)]"
+            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-[68px] md:text-[80px] font-semibold text-[var(--lab-text)] mt-6"
             style={{ fontVariationSettings: "'GRAD' 140", textShadow: "0 0 40px var(--lab-accent-dim)" }}
           >
             PUBLISH
           </h1>
 
           <span
-            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] text-5xl md:text-6xl font-semibold text-[var(--lab-accent)]"
+            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] text-[68px] md:text-[80px] font-semibold text-[var(--lab-accent)]"
             style={{ fontVariationSettings: "'GRAD' 140" }}
           >
             OR
           </span>
 
           {/* PERISH — ASCIIText effect */}
-          <div className="relative w-full" style={{ height: "clamp(100px, 15vw, 170px)" }}>
+          <div className="relative w-full -mt-6" style={{ height: "clamp(120px, 18vw, 200px)" }}>
             <ASCIIText
               text="PERISH"
               asciiFontSize={6}
-              textFontSize={240}
+              textFontSize={280}
               textColor="#D8DEE9"
               planeBaseHeight={9}
               enableWaves
             />
           </div>
-
-          {/* Divider with diamond */}
-          <div className="relative flex items-center w-48">
-            <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
-            <div
-              className="mx-2 w-2 h-2 rotate-45"
-              style={{ background: "var(--lab-accent)", flexShrink: 0 }}
-            />
-            <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
-          </div>
-
-          <p
-            data-string="split"
-            data-string-split="word[start]"
-            data-string-repeat
-            className="text-[var(--lab-text-dim)] text-lg max-w-md"
-          >
-            Expose the fraud before they bring the whole lab down.
-          </p>
         </div>
+
+        <BorderGlow
+          backgroundColor="#111822"
+          borderRadius={8}
+          glowRadius={25}
+          glowIntensity={0.4}
+          colors={["#00DFA2", "#3399FF"]}
+          fillOpacity={0.3}
+        >
+          <div className="flex flex-col items-center gap-3 px-8 py-5 text-center">
+            <div className="relative flex items-center w-48">
+              <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
+              <div className="mx-2 w-2 h-2 rotate-45" style={{ background: "var(--lab-accent)", flexShrink: 0 }} />
+              <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
+            </div>
+            <p
+              data-string="split"
+              data-string-split="word[start]"
+              data-string-repeat
+              className="text-[var(--lab-text-dim)] text-lg max-w-md"
+            >
+              Expose the fraud before they bring the whole lab down.
+            </p>
+          </div>
+        </BorderGlow>
 
         {/* Action cards */}
         <div
@@ -104,20 +111,29 @@ export default function LandingPage() {
         </div>
 
         {/* Publication status bar — decorative */}
-        <div className="flex flex-col items-center gap-2 w-full max-w-xs">
-          <div className="flex gap-1 w-full">
-            {["SUBMITTED", "UNDER REVIEW", "REVISION", "ACCEPTED", "PUBLISHED"].map((s, i) => (
-              <div key={s} className={`pub-status-segment ${i === 0 ? "active" : ""}`} />
-            ))}
+        <BorderGlow
+          backgroundColor="#111822"
+          borderRadius={8}
+          glowRadius={25}
+          glowIntensity={0.5}
+          colors={["#00DFA2", "#3399FF"]}
+          fillOpacity={0.3}
+        >
+          <div className="flex flex-col items-center gap-2 w-full max-w-xs px-6 py-4">
+            <div className="flex gap-1 w-full">
+              {["SUBMITTED", "UNDER REVIEW", "REVISION", "ACCEPTED", "PUBLISHED"].map((s, i) => (
+                <div key={s} className={`pub-status-segment ${i === 0 ? "active" : ""}`} />
+              ))}
+            </div>
+            <p className="text-[9px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
+              PUBLICATION STATUS
+            </p>
           </div>
-          <p className="text-[9px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
-            PUBLICATION STATUS
-          </p>
-        </div>
+        </BorderGlow>
       </div>
 
       {/* Footer */}
-      <footer className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-4">
+      <footer className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-4" style={{ background: "var(--lab-surface)", borderTop: "1px solid var(--lab-border)" }}>
         <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
           POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS
         </p>
