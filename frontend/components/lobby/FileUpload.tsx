@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, DragEvent, ChangeEvent } from "react"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 interface FileUploadProps {
   roomCode: string
@@ -51,7 +52,6 @@ export default function FileUpload({ roomCode, onUploadComplete }: FileUploadPro
     formData.append("room_code", roomCode)
     valid.forEach((f) => formData.append("files", f))
 
-    // Simulate progress while uploading
     const progressInterval = setInterval(() => {
       setFiles((prev) =>
         prev.map((fp) =>
@@ -70,7 +70,6 @@ export default function FileUpload({ roomCode, onUploadComplete }: FileUploadPro
       onUploadComplete?.()
     } catch {
       clearInterval(progressInterval)
-      // In demo mode, still trigger completion
       setFiles((prev) => prev.map((fp) => ({ ...fp, progress: 100, done: true })))
       onUploadComplete?.()
     } finally {
@@ -81,36 +80,44 @@ export default function FileUpload({ roomCode, onUploadComplete }: FileUploadPro
   return (
     <div className="flex flex-col gap-4">
       {/* Drop zone */}
-      <div
-        onClick={() => inputRef.current?.click()}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        className="relative rounded border-2 border-dashed p-8 flex flex-col items-center gap-3 cursor-pointer transition-all"
-        style={{
-          borderColor: dragging ? "var(--lab-accent)" : "var(--lab-border-hi)",
-          background: dragging ? "var(--lab-accent-dim)" : "var(--lab-surface)",
-        }}
+      <BorderGlow
+        backgroundColor={dragging ? "rgba(0,223,162,0.05)" : "#111822"}
+        borderRadius={8}
+        glowRadius={40}
+        glowIntensity={dragging ? 1.2 : 0.7}
+        colors={["#00DFA2", "#3399FF"]}
+        fillOpacity={0.3}
+        data-string="spotlight"
+        data-string-id="upload-zone"
+        data-string-lerp="0.2"
       >
-        <div className="text-3xl" style={{ color: "var(--lab-text-dim)" }}>⬆</div>
-        <p className="font-[family-name:var(--font-space-mono)] text-xs tracking-widest uppercase text-[var(--lab-text)]">
-          UPLOAD RESEARCH MATERIALS
-        </p>
-        <p className="text-xs text-[var(--lab-text-dim)] text-center">
-          Drag &amp; drop files here, or click to browse
-        </p>
-        <p className="text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
-          PDF · PPTX · DOCX · MD · TXT · MAX 25MB
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept={ACCEPTED}
-          multiple
-          className="hidden"
-          onChange={onInputChange}
-        />
-      </div>
+        <div
+          onClick={() => inputRef.current?.click()}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          className="p-8 flex flex-col items-center gap-3 cursor-pointer transition-all"
+        >
+          <div className="text-3xl" style={{ color: "var(--lab-text-dim)" }}>⬆</div>
+          <p className="font-[family-name:var(--font-mono)] text-xs tracking-widest uppercase text-[var(--lab-text)]">
+            UPLOAD RESEARCH MATERIALS
+          </p>
+          <p className="text-xs text-[var(--lab-text-dim)] text-center">
+            Drag &amp; drop files here, or click to browse
+          </p>
+          <p className="text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
+            PDF · PPTX · DOCX · MD · TXT · MAX 25MB
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={ACCEPTED}
+            multiple
+            className="hidden"
+            onChange={onInputChange}
+          />
+        </div>
+      </BorderGlow>
 
       {/* File progress */}
       {files.length > 0 && (
@@ -119,7 +126,7 @@ export default function FileUpload({ roomCode, onUploadComplete }: FileUploadPro
             <div key={i} className="flex flex-col gap-1">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-[var(--lab-text-dim)] truncate max-w-[200px]">{fp.name}</span>
-                <span className="text-[10px] font-[family-name:var(--font-space-mono)]" style={{ color: fp.done ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
+                <span className="text-[10px] font-[family-name:var(--font-mono)]" style={{ color: fp.done ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
                   {fp.done ? "✓ UPLOADED" : `${Math.round(fp.progress)}%`}
                 </span>
               </div>

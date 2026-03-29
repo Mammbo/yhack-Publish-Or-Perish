@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { initStringTune } from "@/lib/stringtune"
 import SpyReveal from "@/components/results/SpyReveal"
 import DirectiveExpose from "@/components/results/DirectiveExpose"
+import BorderGlow from "@/components/ui/BorderGlow"
+import FluidBackground from "@/components/shared/FluidBackground"
 import { VoteResult, GameOverPayload, MOCK_VOTE_RESULT } from "@/types/game"
 
 type Phase = 0 | 1 | 2 | 3 | 4 | 5
@@ -21,27 +23,22 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
   useEffect(() => {
     initStringTune()
 
-    // Load stored result data
     const vr = sessionStorage.getItem("vote_result")
     const go = sessionStorage.getItem("game_over")
     const pn = sessionStorage.getItem("player_names")
 
     if (vr) setResult(JSON.parse(vr))
     else if (go) setGameOver(JSON.parse(go))
-    else {
-      // Demo fallback
-      setResult(MOCK_VOTE_RESULT)
-    }
+    else setResult(MOCK_VOTE_RESULT)
 
     if (pn) setPlayerNames(JSON.parse(pn))
 
-    // Cinematic reveal sequence
     const timings: [Phase, number][] = [
-      [1, 500],    // Phase 1: "EXPERIMENT COMPLETE"
-      [2, 2500],   // Phase 2: result announcement
-      [3, 4500],   // Phase 3: flip card
-      [4, 7000],   // Phase 4: directive
-      [5, 10000],  // Phase 5: action buttons
+      [1, 500],
+      [2, 2500],
+      [3, 4500],
+      [4, 7000],
+      [5, 10000],
     ]
     const timeouts = timings.map(([phase, delay]) =>
       setTimeout(() => setRevealPhase(phase), delay)
@@ -64,10 +61,12 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
     <div
       className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
       style={{ background: "var(--lab-void)" }}
-      string-parallax="0.2"
     >
+      <FluidBackground speed="normal" />
+
       {/* Background glow */}
       <div
+        data-string-parallax="0.2"
         className="absolute inset-0 pointer-events-none"
         style={{
           background: playersWon
@@ -78,21 +77,27 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
       <div className="absolute inset-0 pointer-events-none lab-grid-bg opacity-40" />
 
       <div className="relative z-10 flex flex-col items-center gap-8 px-6 text-center max-w-2xl w-full">
-        {/* Phase 1: EXPERIMENT COMPLETE */}
         {revealPhase >= 1 && (
           <p
-            className="font-[family-name:var(--font-space-mono)] text-sm tracking-[0.4em] uppercase animate-fade-in"
+            data-string="split"
+            data-string-id="experiment-complete"
+            data-string-split="char[start]"
+            data-string-repeat
+            className="font-[family-name:var(--font-mono)] text-sm tracking-[0.4em] uppercase animate-fade-in"
             style={{ color: "var(--lab-text-dim)" }}
           >
             — EXPERIMENT COMPLETE —
           </p>
         )}
 
-        {/* Phase 2: Result headline */}
         {revealPhase >= 2 && (
           <div className="flex flex-col items-center gap-3 animate-slide-up">
             <h1
-              className="font-[family-name:var(--font-space-mono)] text-3xl md:text-4xl font-bold uppercase tracking-widest"
+              data-string="split"
+              data-string-id="result-headline"
+              data-string-split="word[start]"
+              data-string-repeat
+              className="font-[family-name:var(--font-mono)] text-3xl md:text-4xl font-bold uppercase tracking-widest"
               style={{
                 color: playersWon ? "var(--lab-accent)" : "var(--lab-danger)",
                 textShadow: playersWon
@@ -110,32 +115,43 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
           </div>
         )}
 
-        {/* Phase 3: Flip card reveal */}
         {revealPhase >= 3 && (
           <div className="animate-slide-up flex flex-col items-center gap-3">
-            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
               IMPOSTOR IDENTITY
             </p>
-            <SpyReveal impostorName={impostorName} wasImpostor={wasImpostorCaught} />
+            <BorderGlow
+              backgroundColor="#111822"
+              borderRadius={8}
+              glowRadius={40}
+              glowIntensity={0.9}
+              colors={playersWon ? ["#FF3355", "#FF5577"] : ["#FFB020", "#FF3355"]}
+              fillOpacity={0.3}
+              data-string="spotlight"
+              data-string-id="dossier-card"
+              data-string-lerp="0.2"
+            >
+              <div className="p-4">
+                <SpyReveal impostorName={impostorName} wasImpostor={wasImpostorCaught} />
+              </div>
+            </BorderGlow>
           </div>
         )}
 
-        {/* Phase 4: Directive expose */}
         {revealPhase >= 4 && directive && (
           <DirectiveExpose directive={directive} />
         )}
 
-        {/* Vote summary */}
         {revealPhase >= 4 && result?.votes && (
           <div
             className="animate-fade-in flex flex-col gap-2 w-full max-w-xs"
             style={{ animationDelay: "0.3s" }}
           >
-            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
               VOTE TALLY
             </p>
             {Object.entries(result.votes).map(([pid, count]) => (
-              <div key={pid} className="flex justify-between items-center text-xs font-[family-name:var(--font-space-mono)]">
+              <div key={pid} className="flex justify-between items-center text-xs font-[family-name:var(--font-mono)]">
                 <span style={{ color: pid === result.eliminated_id ? "var(--lab-danger)" : "var(--lab-text-dim)" }}>
                   {playerNames[pid] ?? pid}
                   {pid === result.eliminated_id ? " ◀ ELIMINATED" : ""}
@@ -146,24 +162,36 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
           </div>
         )}
 
-        {/* Phase 5: Action buttons */}
         {revealPhase >= 5 && (
           <div className="animate-slide-up flex flex-col sm:flex-row gap-4 w-full max-w-sm">
-            <button
-              string="magnetic"
-              string-radius="200"
-              string-strength="0.3"
-              onClick={startNewGame}
-              className="flex-1 py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer font-[family-name:var(--font-space-mono)]"
-              style={{ background: "var(--lab-accent)", color: "var(--lab-void)", border: "none" }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+            <BorderGlow
+              backgroundColor="transparent"
+              borderRadius={6}
+              glowRadius={20}
+              glowIntensity={1.0}
+              colors={["#00DFA2", "#00E89C", "#00B87A"]}
+              fillOpacity={0.2}
+              className="flex-1"
             >
-              NEW EXPERIMENT
-            </button>
+              <button
+                data-string="magnetic"
+                data-string-radius="200"
+                data-string-strength="0.3"
+                onClick={startNewGame}
+                className="w-full py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer font-[family-name:var(--font-mono)]"
+                style={{ background: "var(--lab-accent)", color: "var(--lab-void)", border: "none" }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+              >
+                NEW EXPERIMENT
+              </button>
+            </BorderGlow>
             <button
+              data-string="magnetic"
+              data-string-radius="200"
+              data-string-strength="0.3"
               onClick={() => router.push("/")}
-              className="flex-1 py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer font-[family-name:var(--font-space-mono)]"
+              className="flex-1 py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer font-[family-name:var(--font-mono)]"
               style={{ background: "transparent", color: "var(--lab-text)", border: "1px solid var(--lab-border-hi)" }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--lab-accent)"; e.currentTarget.style.color = "var(--lab-accent)" }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--lab-border-hi)"; e.currentTarget.style.color = "var(--lab-text)" }}
@@ -174,8 +202,7 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
         )}
       </div>
 
-      {/* Footer */}
-      <footer className="absolute bottom-0 left-0 right-0 px-6 py-3 text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase text-center" style={{ borderTop: "1px solid var(--lab-border)" }}>
+      <footer className="absolute bottom-0 left-0 right-0 px-6 py-3 text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase text-center" style={{ borderTop: "1px solid var(--lab-border)" }}>
         POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS · YHACK 2026
       </footer>
     </div>

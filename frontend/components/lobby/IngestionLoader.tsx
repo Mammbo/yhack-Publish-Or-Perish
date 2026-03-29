@@ -37,7 +37,7 @@ export default function IngestionLoader() {
 
   return (
     <div className="flex flex-col gap-3 p-6 rounded border" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
-      <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] mb-2">
+      <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-2">
         AI PIPELINE ACTIVE
       </p>
       {STEPS.map((step, i) => {
@@ -67,7 +67,7 @@ export default function IngestionLoader() {
             </div>
 
             <span
-              className="text-xs font-[family-name:var(--font-space-mono)] tracking-wider"
+              className="text-xs font-[family-name:var(--font-mono)] tracking-wider"
               style={{ color: done ? "var(--lab-accent)" : active ? "var(--lab-text)" : "var(--lab-text-dim)" }}
             >
               {step}
@@ -76,7 +76,7 @@ export default function IngestionLoader() {
         )
       })}
 
-      <div className="mt-2 text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+      <div className="mt-2 text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
         Waiting for game to begin...
       </div>
     </div>

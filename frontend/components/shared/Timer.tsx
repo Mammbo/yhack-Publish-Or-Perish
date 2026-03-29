@@ -36,7 +36,7 @@ export default function Timer({ seconds, onExpire, className = "" }: TimerProps)
 
   return (
     <span
-      className={`font-[family-name:var(--font-space-mono)] tabular-nums tracking-widest text-sm ${colorClass} ${className}`}
+      className={`font-[family-name:var(--font-mono)] tabular-nums tracking-widest text-sm ${colorClass} ${className}`}
     >
       {mm}:{ss}
     </span>

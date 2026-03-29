@@ -12,7 +12,7 @@ export default function DirectiveExpose({ directive }: { directive: string }) {
         style={{
           transform: "rotate(8deg)",
           color: "var(--lab-danger)",
-          fontFamily: "var(--font-space-mono), monospace",
+          fontFamily: "var(--font-mono), monospace",
           fontSize: "0.65rem",
           fontWeight: 700,
           letterSpacing: "0.2em",
@@ -24,13 +24,13 @@ export default function DirectiveExpose({ directive }: { directive: string }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <p className="text-[10px] font-bold tracking-widest uppercase font-[family-name:var(--font-space-mono)]" style={{ color: "var(--lab-danger)" }}>
+        <p className="text-[10px] font-bold tracking-widest uppercase font-[family-name:var(--font-mono)]" style={{ color: "var(--lab-danger)" }}>
           HIDDEN DIRECTIVE EXPOSED:
         </p>
         <p className="text-sm leading-relaxed text-[var(--lab-text)] italic">
           &ldquo;{directive}&rdquo;
         </p>
-        <p className="text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+        <p className="text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
           THIS IS HOW THEY WERE SABOTAGING YOUR RESEARCH
         </p>
       </div>

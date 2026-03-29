@@ -17,7 +17,7 @@ const variantStyles: Record<string, string> = {
 export default function StatusBadge({ label, variant = "default", className = "" }: StatusBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase border rounded font-[family-name:var(--font-space-mono)] ${variantStyles[variant]} ${className}`}
+      className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase border rounded font-[family-name:var(--font-mono)] ${variantStyles[variant]} ${className}`}
     >
       {label}
     </span>

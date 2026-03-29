@@ -1,13 +1,14 @@
 "use client"
 
-import { useEffect, useState, useRef, use } from "react"
+import { useEffect, useState, use } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getSocket } from "@/lib/socket"
 import { initStringTune } from "@/lib/stringtune"
 import PlayerCard from "@/components/lobby/PlayerCard"
 import FileUpload from "@/components/lobby/FileUpload"
 import IngestionLoader from "@/components/lobby/IngestionLoader"
-import CornerMarkers from "@/components/shared/CornerMarkers"
+import BorderGlow from "@/components/ui/BorderGlow"
+import FluidBackground from "@/components/shared/FluidBackground"
 
 interface PlayerInfo {
   id: string
@@ -27,7 +28,6 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [myPlayerName, setMyPlayerName] = useState("")
   const [isConnected, setIsConnected] = useState(false)
 
-  // Host is the first player who joined
   const hostId = players[0]?.id ?? ""
 
   useEffect(() => {
@@ -41,7 +41,6 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     setMyPlayerName(pname)
 
     if (isDemo) {
-      // Demo mode — simulate socket events
       setPlayers([
         { id: pid, name: pname },
         { id: "player_2", name: "Dr. Chen" },
@@ -121,26 +120,36 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
+      <FluidBackground speed="normal" />
+
       {/* Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b lab-scanlines" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
-        <span className="font-[family-name:var(--font-space-mono)] text-[var(--lab-accent)] text-sm font-bold tracking-widest">
+      <header className="relative z-10 flex items-center justify-between px-6 py-3 border-b lab-scanlines" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
+        <span className="font-[family-name:var(--font-mono)] text-[var(--lab-accent)] text-sm font-bold tracking-widest">
           PUBLISH<span className="text-[var(--lab-text-dim)]"> OR </span>PERISH
         </span>
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isConnected ? "animate-pulse-dot" : ""}`} style={{ background: isConnected ? "var(--lab-accent)" : "var(--lab-text-dim)" }} />
-          <span className="text-xs font-[family-name:var(--font-space-mono)] text-[var(--lab-text-dim)]">
+          <span className="text-xs font-[family-name:var(--font-mono)] text-[var(--lab-text-dim)]">
             {isConnected ? "CONNECTED" : "CONNECTING..."}
           </span>
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 max-w-6xl mx-auto w-full">
+      <div className="relative z-10 flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 max-w-6xl mx-auto w-full">
         {/* Left — Players */}
         <div className="flex flex-col gap-6">
           {/* Room code */}
-          <CornerMarkers className="p-5 rounded border" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" } as React.CSSProperties}>
+          <BorderGlow
+            backgroundColor="#111822"
+            borderRadius={8}
+            glowRadius={35}
+            glowIntensity={0.7}
+            colors={["#00DFA2", "#3399FF"]}
+            fillOpacity={0.3}
+            className="p-5"
+          >
             <div className="flex flex-col gap-2">
-              <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+              <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
                 LAB ACCESS CODE
               </p>
               <button
@@ -148,23 +157,27 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 className="flex items-center gap-3 group cursor-pointer"
               >
                 <span
+                  data-string="split"
+                  data-string-id="room-code"
+                  data-string-split="char[center]"
+                  data-string-repeat
                   className="data-readout text-3xl font-bold tracking-[0.5em]"
                   style={{ color: "var(--lab-accent)", textShadow: "0 0 20px var(--lab-accent-dim)" }}
                 >
                   {code.split("").join(" ")}
                 </span>
-                <span className="text-xs font-[family-name:var(--font-space-mono)] transition-colors" style={{ color: copied ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
+                <span className="text-xs font-[family-name:var(--font-mono)] transition-colors" style={{ color: copied ? "var(--lab-accent)" : "var(--lab-text-dim)" }}>
                   {copied ? "✓ COPIED" : "COPY"}
                 </span>
               </button>
               <p className="text-xs text-[var(--lab-text-dim)]">Share this code with your team</p>
             </div>
-          </CornerMarkers>
+          </BorderGlow>
 
           {/* Player grid */}
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+              <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
                 RESEARCH TEAM
               </p>
               <span className="data-readout text-xs" style={{ color: "var(--lab-accent)" }}>
@@ -183,7 +196,6 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                   isConnected={true}
                 />
               ))}
-              {/* Empty slots */}
               {Array.from({ length: Math.max(0, 4 - players.length) }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
@@ -193,17 +205,16 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                   <div className="w-10 h-10 rounded-full border border-dashed flex items-center justify-center" style={{ borderColor: "var(--lab-border)" }}>
                     <span style={{ color: "var(--lab-text-dim)" }} className="text-sm">?</span>
                   </div>
-                  <span className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+                  <span className="text-xs text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
                     AWAITING RESEARCHER...
                   </span>
                 </div>
               ))}
             </div>
 
-            {/* RESEARCHERS CONNECTED counter */}
             <div className="flex items-center gap-2">
               <div className="flex-1 h-px" style={{ background: "var(--lab-border)" }} />
-              <span className="text-[10px] font-[family-name:var(--font-space-mono)] text-[var(--lab-text-dim)] tracking-wider px-2">
+              <span className="text-[10px] font-[family-name:var(--font-mono)] text-[var(--lab-text-dim)] tracking-wider px-2">
                 {players.length} RESEARCHER{players.length !== 1 ? "S" : ""} CONNECTED
               </span>
               <div className="flex-1 h-px" style={{ background: "var(--lab-border)" }} />
@@ -212,29 +223,38 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
           {/* Begin button (host only) */}
           {isHost && (
-            <button
-              string="magnetic"
-              string-radius="300"
-              string-strength="0.4"
-              onClick={beginExperiment}
-              disabled={!canStart}
-              className="w-full py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-space-mono)]"
-              style={{
-                background: canStart ? "var(--lab-accent)" : "var(--lab-surface-hi)",
-                color: canStart ? "var(--lab-void)" : "var(--lab-text-dim)",
-                border: "none",
-              }}
-              onMouseEnter={(e) => { if (canStart) e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+            <BorderGlow
+              backgroundColor="transparent"
+              borderRadius={6}
+              glowRadius={25}
+              glowIntensity={canStart ? 1.0 : 0.3}
+              colors={["#00DFA2", "#00E89C", "#00B87A"]}
+              fillOpacity={0.2}
             >
-              {canStart ? "BEGIN EXPERIMENT →" : `NEED ${2 - players.length} MORE RESEARCHER${2 - players.length !== 1 ? "S" : ""}`}
-            </button>
+              <button
+                data-string="magnetic"
+                data-string-radius="300"
+                data-string-strength="0.4"
+                onClick={beginExperiment}
+                disabled={!canStart}
+                className="w-full py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-mono)]"
+                style={{
+                  background: canStart ? "var(--lab-accent)" : "var(--lab-surface-hi)",
+                  color: canStart ? "var(--lab-void)" : "var(--lab-text-dim)",
+                  border: "none",
+                }}
+                onMouseEnter={(e) => { if (canStart) e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+              >
+                {canStart ? "BEGIN EXPERIMENT →" : `NEED ${2 - players.length} MORE RESEARCHER${2 - players.length !== 1 ? "S" : ""}`}
+              </button>
+            </BorderGlow>
           )}
         </div>
 
         {/* Right — Upload / Ingestion */}
         <div className="flex flex-col gap-4">
-          <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+          <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
             RESEARCH MATERIALS
           </p>
 
@@ -245,7 +265,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           )}
 
           <div className="p-4 rounded border" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
-            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] mb-2">
+            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-2">
               AI PIPELINE
             </p>
             <p className="text-xs text-[var(--lab-text-dim)]">
@@ -256,7 +276,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       </div>
 
       {/* Footer */}
-      <footer className="px-6 py-3 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
+      <footer className="relative z-10 px-6 py-3 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
         POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS · YHACK 2026
       </footer>
     </div>

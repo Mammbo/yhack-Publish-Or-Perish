@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getSocket } from "@/lib/socket"
+import { initStringTune } from "@/lib/stringtune"
 import { VoteResult, MOCK_CONTRIBUTIONS } from "@/types/game"
 import LabHeader from "@/components/shared/LabHeader"
 import ImpostorBanner from "@/components/game/ImpostorBanner"
@@ -11,6 +12,7 @@ import ContributionFeed from "@/components/game/ContributionFeed"
 import ContributionInput from "@/components/game/ContributionInput"
 import PlayerStatusBar from "@/components/game/PlayerStatusBar"
 import MeetingModal from "@/components/meeting/MeetingModal"
+import FluidBackground from "@/components/shared/FluidBackground"
 
 interface GameData {
   problem_statement: string
@@ -43,10 +45,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const isMyTurn = currentTurn === myPlayerId && !submitted
 
   useEffect(() => {
+    initStringTune()
+
     const pid = localStorage.getItem("player_id") ?? ""
     setMyPlayerId(pid)
 
-    // Load game start data from sessionStorage
     const stored = sessionStorage.getItem("game_start")
     if (stored) {
       const data: GameData = JSON.parse(stored)
@@ -57,12 +60,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
 
     if (isDemo) {
-      // Simulate impostor directive for demo
       if (Math.random() > 0.5) {
         setIsImpostor(true)
         setDirective("Use >= instead of > in the comparison, causing it to skip the last element when the array has an even length.")
       }
-      // Simulate some contributions
       setTimeout(() => {
         setContributions(MOCK_CONTRIBUTIONS)
         setLatestContributor("player_2")
@@ -139,7 +140,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     if (isDemo) {
       setContributions((prev) => ({ ...prev, [myPlayerId]: content }))
       setLatestContributor(myPlayerId)
-      // Simulate turn advance
       setTimeout(() => {
         const nextIdx = (players.indexOf(myPlayerId) + 1) % players.length
         setCurrentTurn(players[nextIdx])
@@ -170,6 +170,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
+      <FluidBackground speed="slow" />
+
       <LabHeader
         roomCode={code}
         phase={phase}
@@ -178,14 +180,11 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         showMeetingBtn={phase === "playing"}
       />
 
-      <div className="flex-1 flex flex-col gap-4 p-4 md:p-6 max-w-7xl mx-auto w-full">
-        {/* Impostor banner */}
+      <div className="relative z-10 flex-1 flex flex-col gap-4 p-4 md:p-6 max-w-7xl mx-auto w-full">
         {isImpostor && directive && <ImpostorBanner directive={directive} />}
 
-        {/* Problem statement */}
         <ProblemDisplay problem={problem} />
 
-        {/* Main grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
           {/* Contributions feed */}
           <div
@@ -213,7 +212,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
           </div>
         </div>
 
-        {/* Player status bar */}
         <PlayerStatusBar
           players={players}
           playerNames={playerNames}
@@ -223,7 +221,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         />
       </div>
 
-      {/* Meeting modal */}
       {phase === "voting" && (
         <MeetingModal
           roomCode={code}
@@ -237,7 +234,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         />
       )}
 
-      <footer className="px-6 py-2 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
+      <footer className="relative z-10 px-6 py-2 border-t text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase" style={{ borderColor: "var(--lab-border)" }}>
         POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS · YHACK 2026
       </footer>
     </div>

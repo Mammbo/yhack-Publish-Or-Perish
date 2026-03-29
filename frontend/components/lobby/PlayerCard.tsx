@@ -1,6 +1,6 @@
 "use client"
 
-import CornerMarkers from "@/components/shared/CornerMarkers"
+import BorderGlow from "@/components/ui/BorderGlow"
 import StatusBadge from "@/components/shared/StatusBadge"
 
 function nameToColor(name: string): string {
@@ -34,12 +34,22 @@ export default function PlayerCard({ name, isHost, isMe, isConnected }: PlayerCa
   const color = nameToColor(name)
 
   return (
-    <CornerMarkers
-      string-inview="true"
-      className="p-4 rounded border transition-colors animate-slide-up-fade"
-      style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" } as React.CSSProperties}
+    <BorderGlow
+      backgroundColor="#111822"
+      borderRadius={8}
+      glowRadius={25}
+      glowIntensity={0.6}
+      colors={[color, "#00DFA2"]}
+      fillOpacity={0.3}
+      className="animate-slide-up-fade"
+      data-string="impulse"
+      data-string-position-strength="1.5"
+      data-string-rotation-strength="0.4"
+      data-string-rotation-max-angle="6"
+      data-string-max-offset="12"
+      data-string-position-friction="0.2"
     >
-      <div className="flex items-center gap-3">
+      <div className="p-4 flex items-center gap-3">
         {/* Avatar */}
         <div
           className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
@@ -51,7 +61,7 @@ export default function PlayerCard({ name, isHost, isMe, isConnected }: PlayerCa
         {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-[family-name:var(--font-space-mono)] text-sm text-[var(--lab-text)] truncate">
+            <span className="font-[family-name:var(--font-mono)] text-sm text-[var(--lab-text)] truncate">
               {name}
             </span>
             {isMe && <StatusBadge label="YOU" variant="accent" />}
@@ -65,6 +75,6 @@ export default function PlayerCard({ name, isHost, isMe, isConnected }: PlayerCa
           style={{ background: isConnected ? "var(--lab-accent)" : "var(--lab-text-dim)" }}
         />
       </div>
-    </CornerMarkers>
+    </BorderGlow>
   )
 }

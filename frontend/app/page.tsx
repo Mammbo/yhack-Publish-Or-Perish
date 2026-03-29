@@ -1,9 +1,13 @@
 "use client"
 
 import { useEffect } from "react"
+import dynamic from "next/dynamic"
 import { initStringTune } from "@/lib/stringtune"
 import CreateRoom from "@/components/landing/CreateRoom"
 import JoinRoom from "@/components/landing/JoinRoom"
+import FluidBackground from "@/components/shared/FluidBackground"
+
+const ASCIIText = dynamic(() => import("@/components/ui/ASCIIText"), { ssr: false })
 
 export default function LandingPage() {
   useEffect(() => {
@@ -11,10 +15,12 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden lab-grid-bg">
+    <main className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden lab-grid-bg hero-section">
+      <FluidBackground speed="normal" />
+
       {/* Radial glow */}
       <div
-        string-parallax="0.3"
+        data-string-parallax="0.25"
         className="absolute inset-0 pointer-events-none"
         style={{
           background: "radial-gradient(ellipse 60% 50% at 50% 50%, var(--lab-accent-dim) 0%, transparent 70%)",
@@ -23,15 +29,15 @@ export default function LandingPage() {
 
       {/* Grid layer with parallax */}
       <div
-        string-parallax="0.15"
+        data-string-parallax="0.1"
         className="absolute inset-0 pointer-events-none lab-grid-bg opacity-60"
       />
 
       {/* Particles */}
-      <div className="absolute top-20 left-20 pointer-events-none">
+      <div data-string-parallax="0.4" className="absolute top-20 left-20 pointer-events-none">
         <div className="particles" />
       </div>
-      <div className="absolute bottom-20 right-20 pointer-events-none">
+      <div data-string-parallax="0.4" className="absolute bottom-20 right-20 pointer-events-none">
         <div className="particles particles-2" />
       </div>
 
@@ -40,14 +46,34 @@ export default function LandingPage() {
         {/* Title */}
         <div className="flex flex-col items-center gap-4 text-center">
           <h1
-            string-inview="true"
-            className="font-[family-name:var(--font-space-mono)] text-5xl md:text-6xl font-bold uppercase tracking-[0.3em] text-[var(--lab-text)]"
+            data-string="split"
+            data-string-id="hero-title"
+            data-string-split="char[start]"
+            data-string-repeat
+            className="hero-title font-[family-name:var(--font-mono)] text-5xl md:text-6xl font-bold uppercase tracking-[0.3em] text-[var(--lab-text)]"
             style={{ textShadow: "0 0 40px var(--lab-accent-dim)" }}
           >
-            PUBLISH<br />
-            <span className="text-[var(--lab-accent)]">OR</span>{" "}
-            PERISH
+            PUBLISH
           </h1>
+
+          <span className="font-[family-name:var(--font-mono)] text-5xl md:text-6xl font-bold uppercase tracking-[0.3em] text-[var(--lab-accent)]">
+            OR
+          </span>
+
+          {/* PERISH — ASCIIText effect */}
+          <div
+            className="relative w-full"
+            style={{ height: "clamp(80px, 12vw, 140px)" }}
+          >
+            <ASCIIText
+              text="PERISH"
+              asciiFontSize={11}
+              textFontSize={200}
+              textColor="#D8DEE9"
+              planeBaseHeight={8}
+              enableWaves
+            />
+          </div>
 
           {/* Divider with diamond */}
           <div className="relative flex items-center w-48">
@@ -60,7 +86,9 @@ export default function LandingPage() {
           </div>
 
           <p
-            string-inview="true"
+            data-string="split"
+            data-string-split="word[start]"
+            data-string-repeat
             className="text-[var(--lab-text-dim)] text-lg max-w-md"
           >
             Expose the fraud before they bring the whole lab down.
@@ -69,7 +97,10 @@ export default function LandingPage() {
 
         {/* Action cards */}
         <div
-          string-inview="true"
+          data-string="progress"
+          data-string-id="cards-reveal"
+          data-string-key="--cards-progress"
+          data-string-offset-top="-20%"
           className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full"
         >
           <CreateRoom />
@@ -83,7 +114,7 @@ export default function LandingPage() {
               <div key={s} className={`pub-status-segment ${i === 0 ? "active" : ""}`} />
             ))}
           </div>
-          <p className="text-[9px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase">
+          <p className="text-[9px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
             PUBLICATION STATUS
           </p>
         </div>
@@ -91,10 +122,10 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-4">
-        <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase">
+        <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
           POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS
         </p>
-        <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase">
+        <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
           YHACK 2026
         </p>
       </footer>

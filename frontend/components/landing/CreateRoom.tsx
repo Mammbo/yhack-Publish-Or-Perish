@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import CornerMarkers from "@/components/shared/CornerMarkers"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 export default function CreateRoom() {
   const [name, setName] = useState("")
@@ -29,7 +29,6 @@ export default function CreateRoom() {
       const data = await res.json()
       router.push(`/room/${data.room_code}`)
     } catch {
-      // Demo fallback — generate a random room code locally
       const code = Math.random().toString(36).substring(2, 8).toUpperCase()
       router.push(`/room/${code}`)
     } finally {
@@ -38,17 +37,31 @@ export default function CreateRoom() {
   }
 
   return (
-    <CornerMarkers className="p-6 rounded border" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" } as React.CSSProperties}>
+    <BorderGlow
+      backgroundColor="#111822"
+      borderRadius={8}
+      glowRadius={35}
+      glowIntensity={0.8}
+      colors={["#00DFA2", "#00B87A", "#3399FF"]}
+      fillOpacity={0.3}
+      className="p-6"
+      data-string="impulse"
+      data-string-position-strength="2"
+      data-string-rotation-strength="0.5"
+      data-string-rotation-max-angle="8"
+      data-string-max-offset="15"
+      data-string-position-friction="0.2"
+    >
       <div className="flex flex-col gap-4">
         <div>
-          <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] mb-1">
+          <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-1">
             INITIALIZE EXPERIMENT
           </p>
           <p className="text-[var(--lab-text-dim)] text-sm">Create a new lab session and invite your team.</p>
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)]">
+          <label className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
             RESEARCHER ID
           </label>
           <input
@@ -68,24 +81,33 @@ export default function CreateRoom() {
           {error && <p className="text-xs text-[var(--lab-danger)]">{error}</p>}
         </div>
 
-        <button
-          string="magnetic"
-          string-radius="300"
-          string-strength="0.4"
-          onClick={handleCreate}
-          disabled={loading}
-          className="w-full py-2.5 rounded text-sm font-bold tracking-widest uppercase transition-all cursor-pointer disabled:opacity-50 font-[family-name:var(--font-space-mono)]"
-          style={{
-            background: "var(--lab-accent)",
-            color: "var(--lab-void)",
-            border: "none",
-          }}
-          onMouseEnter={(e) => { if (!loading) e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
-          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+        <BorderGlow
+          backgroundColor="transparent"
+          borderRadius={6}
+          glowRadius={20}
+          glowIntensity={1.0}
+          colors={["#00DFA2", "#00E89C", "#00B87A"]}
+          fillOpacity={0.2}
         >
-          {loading ? "INITIALIZING..." : "START EXPERIMENT →"}
-        </button>
+          <button
+            data-string="magnetic"
+            data-string-radius="250"
+            data-string-strength="0.5"
+            onClick={handleCreate}
+            disabled={loading}
+            className="w-full py-2.5 rounded text-sm font-bold tracking-widest uppercase transition-all cursor-pointer disabled:opacity-50 font-[family-name:var(--font-mono)]"
+            style={{
+              background: "var(--lab-accent)",
+              color: "var(--lab-void)",
+              border: "none",
+            }}
+            onMouseEnter={(e) => { if (!loading) e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
+          >
+            {loading ? "INITIALIZING..." : "START EXPERIMENT →"}
+          </button>
+        </BorderGlow>
       </div>
-    </CornerMarkers>
+    </BorderGlow>
   )
 }

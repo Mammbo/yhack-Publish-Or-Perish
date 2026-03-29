@@ -25,8 +25,8 @@ export default function SpyReveal({ impostorName, wasImpostor }: SpyRevealProps)
             className="flip-card-face absolute inset-0 rounded border flex flex-col items-center justify-center gap-2"
             style={{ background: "var(--lab-danger-dim)", borderColor: "var(--lab-danger)" }}
           >
-            <span className="text-4xl font-bold font-[family-name:var(--font-space-mono)]" style={{ color: "var(--lab-danger)" }}>?</span>
-            <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] uppercase">
+            <span className="text-4xl font-bold font-[family-name:var(--font-mono)]" style={{ color: "var(--lab-danger)" }}>?</span>
+            <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
               IDENTITY UNKNOWN
             </p>
           </div>
@@ -46,7 +46,7 @@ export default function SpyReveal({ impostorName, wasImpostor }: SpyRevealProps)
             >
               {impostorName.slice(0, 2).toUpperCase()}
             </div>
-            <p className="font-[family-name:var(--font-space-mono)] text-sm font-bold tracking-wider text-[var(--lab-text)]">
+            <p className="font-[family-name:var(--font-mono)] text-sm font-bold tracking-wider text-[var(--lab-text)]">
               {impostorName}
             </p>
             <div className="classified-stamp text-base">CLASSIFIED</div>
