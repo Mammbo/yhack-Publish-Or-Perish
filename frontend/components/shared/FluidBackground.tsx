@@ -13,22 +13,22 @@ export default function FluidBackground({ speed = "normal" }: FluidBackgroundPro
 
   return (
     <div
-      className="fixed inset-0 pointer-events-none z-0"
-      style={{ opacity: 0.4 }}
+      className="fixed inset-0 pointer-events-none z-[5]"
+      style={{ opacity: isSlow ? 0.65 : 0.8 }}
     >
       <LiquidEther
-        colors={["#00DFA2", "#0B1018", "#182030"]}
-        mouseForce={isSlow ? 5 : 20}
-        cursorSize={isSlow ? 60 : 100}
+        colors={["#00DFA2", "#00B87A", "#182030"]}
+        mouseForce={isSlow ? 8 : 30}
+        cursorSize={isSlow ? 80 : 120}
         isViscous
-        viscous={isSlow ? 40 : 21}
+        viscous={isSlow ? 35 : 18}
         iterationsViscous={isSlow ? 16 : 32}
         iterationsPoisson={isSlow ? 16 : 32}
         resolution={isSlow ? 0.3 : 0.5}
         isBounce={false}
         autoDemo
-        autoSpeed={isSlow ? 0.15 : 0.5}
-        autoIntensity={isSlow ? 0.8 : 2.2}
+        autoSpeed={isSlow ? 0.2 : 0.7}
+        autoIntensity={isSlow ? 1.5 : 3.5}
         takeoverDuration={0.25}
         autoResumeDelay={3000}
         autoRampDuration={0.6}
