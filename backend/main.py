@@ -358,11 +358,16 @@ async def run_ai_pipeline(room_code: str, saved_files: list):
             resp = _httpx.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
                 params={"key": gemini_key},
-                json={"contents": [{"parts": [{"text": prompt}]}]},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"thinkingConfig": {"thinkingBudget": 0}},
+                },
                 timeout=90,
             )
             resp.raise_for_status()
-            raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            parts = resp.json()["candidates"][0]["content"]["parts"]
+            # Skip thought parts (thinkingBudget=0 should prevent them, but guard anyway)
+            raw = next((p["text"] for p in parts if not p.get("thought")), parts[-1]["text"])
             clean = re.sub(r"```json|```", "", raw).strip()
             return json.loads(clean)
 
