@@ -60,7 +60,7 @@ export default function LandingPage() {
           </span>
 
           {/* PERISH — ASCIIText effect */}
-          <div className="relative w-full" style={{ height: "clamp(100px, 15vw, 170px)" }}>
+          <div className="relative w-full -mt-32" style={{ height: "clamp(100px, 15vw, 170px)" }}>
             <ASCIIText
               text="PERISH"
               asciiFontSize={6}
