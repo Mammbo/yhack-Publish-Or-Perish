@@ -122,6 +122,7 @@ socket_app = socketio.ASGIApp(sio, app)
 
 # ── In-memory sid → player mapping ────────────────────────────────────────────
 connected: dict[str, dict] = {}  # sid → { room_code, player_id, player_name }
+finish_votes: dict[str, set] = {}  # room_code → set of player_ids who voted to finish
 
 
 # ── HTTP Endpoints ─────────────────────────────────────────────────────────────
@@ -733,6 +734,135 @@ async def disconnect(sid, reason=None):
             room=room_code,
         )
         await state.transition_state(room_code, "ended")
+
+
+# ── Finish experiment ──────────────────────────────────────────────────────────
+
+
+@sio.event
+async def vote_finish(sid, data):
+    """
+    Any player can vote to finish the experiment. When 3 of 4 players vote,
+    Gemini evaluates all contributions and emits experiment_complete.
+    """
+    room_code = data.get("room_code")
+    player_id = data.get("player_id")
+
+    if await state.get_state(room_code) != "playing":
+        return
+
+    if room_code not in finish_votes:
+        finish_votes[room_code] = set()
+    finish_votes[room_code].add(player_id)
+
+    players = await state.get_players(room_code)
+    vote_count = len(finish_votes[room_code])
+    threshold = max(3, len(players) - 1)  # 3/4 minimum
+
+    await sio.emit(
+        "finish_vote_update",
+        {"votes": vote_count, "total": len(players), "voted": list(finish_votes[room_code])},
+        room=room_code,
+    )
+
+    if vote_count >= threshold:
+        votes = finish_votes.pop(room_code, set())
+        asyncio.create_task(evaluate_experiment(room_code))
+
+
+async def evaluate_experiment(room_code: str):
+    """
+    Calls Gemini to evaluate the collaborative document, then ends the game.
+    """
+    try:
+        content = await state.get_content(room_code)
+        contributions = await state.get_contributions(room_code)
+        players = await state.get_players(room_code)
+        player_names = await state.get_player_names(room_code)
+        impostor_id = await state.get_impostor(room_code)
+        problem_statement = content.get("problem_statement", "") if content else ""
+        impostor_directive = content.get("impostor_directive", "") if content else ""
+
+        contrib_text = "\n".join(
+            f"[{player_names.get(pid, pid)}]: {text}"
+            for pid, text in contributions.items()
+        )
+        prompt = (
+            "You are judging a collaborative research experiment.\n\n"
+            f"PROBLEM THE TEAM WAS SOLVING:\n{problem_statement}\n\n"
+            f"TEAM CONTRIBUTIONS:\n{contrib_text}\n\n"
+            "One player was secretly an impostor with wrong instructions. "
+            "Evaluate whether the team's combined document is correct or flawed overall. "
+            "Return ONLY a JSON object:\n"
+            '{\n'
+            '  "verdict": "PASS" or "FAIL",\n'
+            '  "assessment": "2-3 sentences evaluating the collaborative document overall"\n'
+            '}'
+        )
+
+        def _call_gemini():
+            import re
+            import httpx as _httpx
+            gemini_key = os.environ.get("GEMINI_API_KEY", "")
+            if not gemini_key:
+                return {"verdict": "PASS", "assessment": "Experiment complete. AI evaluation unavailable."}
+            print(f"[evaluate] Gemini prompt:\n{prompt}")
+            resp = _httpx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+                params={"key": gemini_key},
+                json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"thinkingConfig": {"thinkingBudget": 0}},
+                },
+                timeout=60,
+            )
+            resp.raise_for_status()
+            parts = resp.json()["candidates"][0]["content"]["parts"]
+            raw = next((p["text"] for p in parts if not p.get("thought")), parts[-1]["text"])
+            print(f"[evaluate] Gemini response:\n{raw}")
+            clean = re.sub(r"```json|```", "", raw).strip()
+            return json.loads(clean)
+
+        evaluation = await asyncio.to_thread(_call_gemini)
+
+        try:
+            await state.transition_state(room_code, "ended")
+        except ValueError:
+            pass
+
+        await sio.emit(
+            "experiment_complete",
+            {
+                "verdict": evaluation.get("verdict", "PASS"),
+                "assessment": evaluation.get("assessment", ""),
+                "impostor_id": impostor_id,
+                "impostor_directive": impostor_directive,
+                "players": players,
+                "player_names": player_names,
+            },
+            room=room_code,
+        )
+
+    except Exception as exc:
+        print(f"[evaluate] Error for room {room_code}: {exc}")
+        traceback.print_exc()
+        # Fail gracefully — end game with no evaluation
+        try:
+            await state.transition_state(room_code, "ended")
+        except Exception:
+            pass
+        await sio.emit(
+            "experiment_complete",
+            {
+                "verdict": "PASS",
+                "assessment": "Experiment complete.",
+                "impostor_id": await state.get_impostor(room_code),
+                "impostor_directive": "",
+                "players": await state.get_players(room_code),
+                "player_names": await state.get_player_names(room_code),
+            },
+            room=room_code,
+        )
 
 
 # ── Vote resolution ────────────────────────────────────────────────────────────

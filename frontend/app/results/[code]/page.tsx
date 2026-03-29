@@ -8,7 +8,7 @@ import SpyReveal from "@/components/results/SpyReveal"
 import DirectiveExpose from "@/components/results/DirectiveExpose"
 import BorderGlow from "@/components/ui/BorderGlow"
 import FluidBackground from "@/components/shared/FluidBackground"
-import { VoteResult, GameOverPayload, MOCK_VOTE_RESULT } from "@/types/game"
+import { VoteResult, GameOverPayload, ExperimentResult, MOCK_VOTE_RESULT } from "@/types/game"
 
 type Phase = 0 | 1 | 2 | 3 | 4 | 5
 
@@ -19,6 +19,7 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
   const [revealPhase, setRevealPhase] = useState<Phase>(0)
   const [result, setResult] = useState<VoteResult | null>(null)
   const [gameOver, setGameOver] = useState<GameOverPayload | null>(null)
+  const [experimentResult, setExperimentResult] = useState<ExperimentResult | null>(null)
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({})
 
   // Load data and socket — depends on code/router
@@ -27,9 +28,14 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
 
     const vr = sessionStorage.getItem("vote_result")
     const go = sessionStorage.getItem("game_over")
+    const er = sessionStorage.getItem("experiment_result")
     const gs = sessionStorage.getItem("game_start")
 
-    if (vr) setResult(JSON.parse(vr))
+    if (er) {
+      const parsed: ExperimentResult = JSON.parse(er)
+      setExperimentResult(parsed)
+      if (parsed.player_names) setPlayerNames(parsed.player_names)
+    } else if (vr) setResult(JSON.parse(vr))
     else if (go) setGameOver(JSON.parse(go))
     else setResult(MOCK_VOTE_RESULT)
 
@@ -65,11 +71,11 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
     return () => timeouts.forEach(clearTimeout)
   }, [])
 
-  const impostorId = result?.eliminated_id ?? gameOver?.impostor_id ?? ""
+  const impostorId = experimentResult?.impostor_id ?? result?.eliminated_id ?? gameOver?.impostor_id ?? ""
   const impostorName = playerNames[impostorId] ?? impostorId ?? "Unknown"
-  const directive = result?.impostor_directive ?? gameOver?.impostor_directive ?? ""
+  const directive = experimentResult?.impostor_directive ?? result?.impostor_directive ?? gameOver?.impostor_directive ?? ""
   const wasImpostorCaught = result?.was_impostor ?? (gameOver?.winner === "players")
-  const playersWon = wasImpostorCaught
+  const playersWon = experimentResult ? experimentResult.verdict === "PASS" : wasImpostorCaught
 
   async function startNewGame() {
     await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/restart`, {
@@ -128,12 +134,14 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
                   : "0 0 40px var(--lab-danger-dim)",
               }}
             >
-              {playersWon ? "PAPER PUBLISHED SUCCESSFULLY" : "RIVAL LAB PUBLISHES FIRST"}
+              {experimentResult
+                ? (playersWon ? "PAPER APPROVED FOR PUBLICATION" : "PAPER REJECTED — FLAWED METHODOLOGY")
+                : (playersWon ? "PAPER PUBLISHED SUCCESSFULLY" : "RIVAL LAB PUBLISHES FIRST")}
             </h1>
             <p className="text-[var(--lab-text-dim)] text-sm">
-              {playersWon
-                ? "The impostor was caught. Science prevails."
-                : "The impostor escaped detection. The paper is compromised."}
+              {experimentResult
+                ? (playersWon ? "The collaborative document passed peer review." : "The impostor's sabotage compromised the work.")
+                : (playersWon ? "The impostor was caught. Science prevails." : "The impostor escaped detection. The paper is compromised.")}
             </p>
           </div>
         )}
@@ -163,6 +171,20 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
 
         {revealPhase >= 4 && directive && (
           <DirectiveExpose directive={directive} />
+        )}
+
+        {revealPhase >= 4 && experimentResult?.assessment && (
+          <div
+            className="animate-fade-in w-full max-w-md p-4 rounded border text-center"
+            style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)", animationDelay: "0.5s" }}
+          >
+            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-2">
+              GEMINI EVALUATION
+            </p>
+            <p className="text-sm text-[var(--lab-text)] leading-relaxed">
+              {experimentResult.assessment}
+            </p>
+          </div>
         )}
 
         {revealPhase >= 4 && result?.votes && (

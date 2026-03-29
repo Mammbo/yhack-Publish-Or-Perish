@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, use } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getSocket } from "@/lib/socket"
 import { initStringTune } from "@/lib/stringtune"
-import { VoteResult, MOCK_CONTRIBUTIONS } from "@/types/game"
+import { VoteResult, ExperimentResult, MOCK_CONTRIBUTIONS } from "@/types/game"
 import LabHeader from "@/components/shared/LabHeader"
 import ImpostorBanner from "@/components/game/ImpostorBanner"
 import ProblemDisplay from "@/components/game/ProblemDisplay"
@@ -38,6 +38,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [callerName, setCallerName] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [finishVoteCount, setFinishVoteCount] = useState(0)
+  const [hasVotedFinish, setHasVotedFinish] = useState(false)
 
   // Ref so socket handlers always see latest playerNames without being in deps
   const playerNamesRef = useRef<Record<string, string>>({})
@@ -142,6 +144,15 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       router.push(`/results/${code}`)
     })
 
+    socket.on("finish_vote_update", (data: { votes: number; total: number; voted: string[] }) => {
+      setFinishVoteCount(data.votes)
+    })
+
+    socket.on("experiment_complete", (data: ExperimentResult) => {
+      sessionStorage.setItem("experiment_result", JSON.stringify(data))
+      router.push(`/results/${code}`)
+    })
+
     socket.on("error", (data: { message: string }) => {
       console.error("Socket error:", data.message)
     })
@@ -154,6 +165,8 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       socket.off("elimination")
       socket.off("vote_result")
       socket.off("game_over")
+      socket.off("finish_vote_update")
+      socket.off("experiment_complete")
       socket.off("error")
     }
   }, [code, router, isDemo])
@@ -169,6 +182,17 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
     const socket = getSocket()
     socket.emit("submit_contribution", { room_code: code, player_id: myPlayerId, content: input.trim() })
+  }
+
+  function voteFinish() {
+    if (hasVotedFinish) return
+    setHasVotedFinish(true)
+    if (isDemo) {
+      setFinishVoteCount((n) => n + 1)
+      return
+    }
+    const socket = getSocket()
+    socket.emit("vote_finish", { room_code: code, player_id: myPlayerId })
   }
 
   function callMeeting() {
@@ -194,6 +218,10 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
         roomCode={code}
         phase={phase}
         onCallMeeting={callMeeting}
+        onFinishExperiment={voteFinish}
+        finishVotes={finishVoteCount}
+        finishVotesNeeded={3}
+        hasVotedFinish={hasVotedFinish}
         showMeetingBtn={phase === "playing"}
       />
 

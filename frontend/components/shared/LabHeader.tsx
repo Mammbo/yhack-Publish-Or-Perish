@@ -10,6 +10,10 @@ interface LabHeaderProps {
   timerSeconds?: number | null
   onCallMeeting?: () => void
   showMeetingBtn?: boolean
+  onFinishExperiment?: () => void
+  finishVotes?: number
+  finishVotesNeeded?: number
+  hasVotedFinish?: boolean
 }
 
 export default function LabHeader({
@@ -18,6 +22,10 @@ export default function LabHeader({
   timerSeconds,
   onCallMeeting,
   showMeetingBtn = false,
+  onFinishExperiment,
+  finishVotes = 0,
+  finishVotesNeeded = 3,
+  hasVotedFinish = false,
 }: LabHeaderProps) {
   return (
     <header
@@ -43,6 +51,22 @@ export default function LabHeader({
 
       <div className="flex items-center gap-4">
         {timerSeconds != null && <Timer seconds={timerSeconds} />}
+        {showMeetingBtn && onFinishExperiment && (
+          <button
+            onClick={onFinishExperiment}
+            disabled={hasVotedFinish}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold tracking-widest uppercase border rounded transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed font-[family-name:var(--font-mono)]"
+            style={{
+              borderColor: "var(--lab-info)",
+              color: "var(--lab-info)",
+              background: hasVotedFinish ? "rgba(51,153,255,0.15)" : "rgba(51,153,255,0.05)",
+            }}
+          >
+            {hasVotedFinish
+              ? `✓ VOTED (${finishVotes}/${finishVotesNeeded})`
+              : `FINISH EXPERIMENT (${finishVotes}/${finishVotesNeeded})`}
+          </button>
+        )}
         {showMeetingBtn && onCallMeeting && (
           <BorderGlow
             backgroundColor="transparent"

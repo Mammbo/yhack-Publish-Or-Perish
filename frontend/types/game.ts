@@ -40,6 +40,15 @@ export interface GameOverPayload {
   impostor_directive: string
 }
 
+export interface ExperimentResult {
+  verdict: "PASS" | "FAIL"
+  assessment: string
+  impostor_id: string
+  impostor_directive: string
+  players: string[]
+  player_names: Record<string, string>
+}
+
 // Mock data for development / demo mode
 export const MOCK_PLAYERS = ["Dr. Chen", "Prof. Reyes", "Dr. Okafor", "Dr. Singh"]
 export const MOCK_PLAYER_IDS = ["player_1", "player_2", "player_3", "player_4"]
