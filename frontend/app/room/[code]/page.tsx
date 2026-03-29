@@ -232,13 +232,27 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               colors={["#00DFA2", "#00E89C", "#00B87A"]}
               fillOpacity={0.2}
             >
-              {canStart
-                ? "BEGIN EXPERIMENT →"
-                : players.length < 4
-                  ? `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
-                  : "UPLOAD MATERIALS FIRST"
-              }
-            </button>
+              <button
+                data-string="magnetic"
+                data-string-radius="300"
+                data-string-strength="0.4"
+                onClick={beginExperiment}
+                disabled={!canStart}
+                className="w-full py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-mono)]"
+                style={{
+                  background: canStart ? "var(--lab-accent)" : "var(--lab-surface-hi)",
+                  color: canStart ? "var(--lab-void)" : "var(--lab-text-dim)",
+                  border: "none",
+                }}
+              >
+                {canStart
+                  ? "BEGIN EXPERIMENT →"
+                  : players.length < 4
+                    ? `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
+                    : "UPLOAD MATERIALS FIRST"
+                }
+              </button>
+            </BorderGlow>
           )}
         </div>
 

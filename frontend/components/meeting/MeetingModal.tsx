@@ -135,22 +135,52 @@ export default function MeetingModal({
               <p className="text-sm font-[family-name:var(--font-mono)] tracking-wider" style={{ color: "var(--lab-accent)" }}>
                 VOTE CAST — WAITING FOR OTHERS...
               </p>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {alivePlayers.map((pid) => {
-              const isMe = pid === myPlayerId
-              return (
-                <div key={pid} className="flex flex-col gap-2">
-                  <div
-                    className="p-3 rounded border flex items-center justify-between"
-                    style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface-hi)" }}
-                  >
-                    <span className="text-sm font-[family-name:var(--font-space-mono)]">
-                      {playerNames[pid] ?? pid}
-                      {isMe && <span className="text-[10px] text-[var(--lab-text-dim)] ml-2">(YOU)</span>}
-                    </span>
+              {votedFor && (
+                <p className="text-xs text-[var(--lab-text-dim)]">
+                  You voted for: {playerNames[votedFor] ?? votedFor}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {alivePlayers.map((pid) => {
+                const isMe = pid === myPlayerId
+                return (
+                  <div key={pid} className="flex flex-col gap-2">
+                    <div
+                      className="p-3 rounded border flex items-center justify-between"
+                      style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface-hi)" }}
+                    >
+                      <span className="text-sm font-[family-name:var(--font-mono)]">
+                        {playerNames[pid] ?? pid}
+                        {isMe && <span className="text-[10px] text-[var(--lab-text-dim)] ml-2">(YOU)</span>}
+                      </span>
+                    </div>
+                    {!isMe && (
+                      <button
+                        data-string="magnetic"
+                        data-string-strength="0.4"
+                        onClick={() => castVote(pid)}
+                        className="w-full py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer transition-colors font-[family-name:var(--font-mono)]"
+                        style={{
+                          background: "var(--lab-danger-dim)",
+                          color: "var(--lab-danger)",
+                          border: "1px solid var(--lab-danger)",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,51,85,0.2)" }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "var(--lab-danger-dim)" }}
+                      >
+                        VOTE
+                      </button>
+                    )}
+                    {isMe && (
+                      <div
+                        className="w-full py-1.5 rounded text-xs text-center tracking-widest uppercase font-[family-name:var(--font-mono)]"
+                        style={{ color: "var(--lab-text-dim)", border: "1px solid var(--lab-border)" }}
+                      >
+                        YOU
+                      </div>
+                    )}
                   </div>
                 )
               })}

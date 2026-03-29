@@ -60,7 +60,7 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
 
     // Refresh recovery — if sessionStorage was cleared (page reload), fetch from server
     if (!stored && !isDemo) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/state?room_code=${code}`)
+      fetch(`${(process as unknown as { env: Record<string, string | undefined> }).env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/state?room_code=${code}`)
         .then((r) => r.json())
         .then((d) => {
           if (d.problem_statement) setProblem(d.problem_statement)
