@@ -1,6 +1,7 @@
 "use client"
 
-import BorderGlow from "@/components/ui/BorderGlow"
+import CornerMarkers from "@/components/shared/CornerMarkers"
+import ReactMarkdown from "react-markdown"
 
 export default function ProblemDisplay({ problem }: { problem: string }) {
   return (
@@ -20,9 +21,9 @@ export default function ProblemDisplay({ problem }: { problem: string }) {
         <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-3">
           EXPERIMENT PROTOCOL
         </p>
-        <p className="text-[var(--lab-text)] leading-relaxed">
-          {problem || "Loading experiment protocol..."}
-        </p>
+        <div className="markdown-body leading-relaxed" style={{ color: "var(--lab-text)" }}>
+          <ReactMarkdown>{problem || "Loading experiment protocol..."}</ReactMarkdown>
+        </div>
       </div>
     </BorderGlow>
   )

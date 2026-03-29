@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -260,94 +261,17 @@
   animation-duration: 13s;
 }
 
-/* === StringTune base === */
-
-html.string-cursor-active,
-html.string-cursor-active * {
-  cursor: none !important;
-}
-
-.string-cursor {
-  width: 16px;
-  height: 16px;
-  background: var(--lab-accent);
-  border-radius: 50%;
-  mix-blend-mode: difference;
-  pointer-events: none;
-  z-index: 9999;
-}
-
-.-s-char {
-  display: inline-block;
-}
-
-.-s-word {
-  display: inline-block;
-}
-
-[data-string="impulse"] {
-  transform:
-    translate(
-      calc(var(--push-x, 0) * 1px),
-      calc(var(--push-y, 0) * 1px)
-    )
-    rotate(calc(var(--push-rotation, 0) * 1deg));
-  will-change: transform;
-}
-
-[data-string="spotlight"] {
-  --dir: calc(var(--spotlight-angle, 0) * 1deg);
-  --falloff: clamp(0, 1, 1 - var(--spotlight-distance, 0) / 400);
-}
-
-[data-string="magnetic"] {
-  transition: transform 0.15s ease-out;
-}
-
-[data-string="progress"] {
-  transition: opacity 0.1s ease, transform 0.1s ease;
-}
-
-.hero-title .-s-char {
-  display: inline-block;
-  opacity: 0;
-  transform: translateY(0.4em);
-  animation: char-reveal 0.6s ease-out forwards;
-  animation-delay: calc(var(--char-start, 0) * 35ms);
-}
-
-@keyframes char-reveal {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.hero-section {
-  opacity: calc(1 - var(--hero-progress, 0));
-  transform: translateY(calc(var(--hero-progress, 0) * -30px));
-}
-
-.problem-panel {
-  --dir: calc(var(--spotlight-angle, 0) * 1deg);
-  --falloff: clamp(0, 1, 1 - var(--spotlight-distance, 0) / 400);
-  box-shadow:
-    calc(cos(var(--dir)) * 12px * var(--falloff))
-    calc(sin(var(--dir)) * 12px * var(--falloff))
-    30px rgba(0, 223, 162, calc(0.06 * var(--falloff)));
-}
-
-.contribution-card {
-  transform:
-    translate(
-      calc(var(--push-x, 0) * 1px),
-      calc(var(--push-y, 0) * 1px)
-    )
-    rotate(calc(var(--push-rotation, 0) * 1deg));
-  transition: box-shadow 0.3s ease;
-  will-change: transform;
-}
-
-.contribution-card:hover {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
+/* Markdown rendering */
+.markdown-body h1 { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; }
+.markdown-body h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; margin-top: 0.75rem; }
+.markdown-body h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.3rem; margin-top: 0.5rem; }
+.markdown-body p { margin-bottom: 0.5rem; }
+.markdown-body ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.markdown-body ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.markdown-body li { margin-bottom: 0.2rem; }
+.markdown-body code { background: var(--lab-surface-hi); padding: 0.1rem 0.35rem; border-radius: 3px; font-family: var(--font-fira-code); font-size: 0.85em; }
+.markdown-body pre { background: var(--lab-surface-hi); padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 0.5rem; overflow-x: auto; }
+.markdown-body pre code { background: none; padding: 0; }
+.markdown-body strong { font-weight: 700; color: var(--lab-text); }
+.markdown-body em { font-style: italic; }
+.markdown-body blockquote { border-left: 3px solid var(--lab-accent); padding-left: 0.75rem; color: var(--lab-text-dim); margin-bottom: 0.5rem; }

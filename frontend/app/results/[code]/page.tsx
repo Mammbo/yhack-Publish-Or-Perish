@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react"
 import { useRouter } from "next/navigation"
 import { initStringTune } from "@/lib/stringtune"
+import { getSocket } from "@/lib/socket"
 import SpyReveal from "@/components/results/SpyReveal"
 import DirectiveExpose from "@/components/results/DirectiveExpose"
 import BorderGlow from "@/components/ui/BorderGlow"
@@ -20,19 +21,37 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
   const [gameOver, setGameOver] = useState<GameOverPayload | null>(null)
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({})
 
+  // Load data and socket — depends on code/router
   useEffect(() => {
     initStringTune()
 
     const vr = sessionStorage.getItem("vote_result")
     const go = sessionStorage.getItem("game_over")
-    const pn = sessionStorage.getItem("player_names")
+    const gs = sessionStorage.getItem("game_start")
 
     if (vr) setResult(JSON.parse(vr))
     else if (go) setGameOver(JSON.parse(go))
     else setResult(MOCK_VOTE_RESULT)
 
-    if (pn) setPlayerNames(JSON.parse(pn))
+    if (gs) {
+      const parsed = JSON.parse(gs)
+      if (parsed.player_names) setPlayerNames(parsed.player_names)
+    }
 
+    const socket = getSocket()
+    if (!socket.connected) socket.connect()
+    socket.on("game_restart", () => {
+      sessionStorage.removeItem("vote_result")
+      sessionStorage.removeItem("game_over")
+      sessionStorage.removeItem("game_start")
+      router.push(`/room/${code}`)
+    })
+
+    return () => { socket.off("game_restart") }
+  }, [code, router])
+
+  // Cinematic reveal — run once on mount
+  useEffect(() => {
     const timings: [Phase, number][] = [
       [1, 500],
       [2, 2500],
@@ -52,9 +71,13 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
   const wasImpostorCaught = result?.was_impostor ?? (gameOver?.winner === "players")
   const playersWon = wasImpostorCaught
 
-  function startNewGame() {
-    sessionStorage.clear()
-    router.push("/")
+  async function startNewGame() {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/restart`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ room_code: code }),
+    }).catch(() => {})
+    // game_restart socket event will navigate everyone including this tab
   }
 
   return (

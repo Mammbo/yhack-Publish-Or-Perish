@@ -29,7 +29,8 @@ export default function MeetingModal({
   const [voted, setVoted] = useState(false)
   const [votedFor, setVotedFor] = useState<string | null>(null)
   const [timeLeft, setTimeLeft] = useState(60)
-  const [liveTally, setLiveTally] = useState<Record<string, number>>({})
+  const [votesIn, setVotesIn] = useState(0)
+  const [totalPlayers, setTotalPlayers] = useState(players.length)
   const socket = getSocket()
 
   const alivePlayers = players.filter((p) => !eliminatedPlayers.includes(p))
@@ -41,10 +42,15 @@ export default function MeetingModal({
 
   useEffect(() => {
     if (!isDemo) {
-      socket.on("vote_result", (data: VoteResult) => {
-        onVoteResult(data)
+      socket.on("vote_result", (data: VoteResult) => onVoteResult(data))
+      socket.on("vote_progress", (data: { votes_in: number; total_players: number }) => {
+        setVotesIn(data.votes_in)
+        setTotalPlayers(data.total_players)
       })
-      return () => { socket.off("vote_result") }
+      return () => {
+        socket.off("vote_result")
+        socket.off("vote_progress")
+      }
     }
   }, [socket, onVoteResult, isDemo])
 
@@ -98,16 +104,29 @@ export default function MeetingModal({
             )}
           </div>
 
-          {/* Timer */}
+        {/* Timer + vote progress */}
+        <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <p className="text-xs text-[var(--lab-text-dim)]">Vote to eliminate a researcher</p>
             <span
-              className={`font-[family-name:var(--font-mono)] font-bold tabular-nums text-sm ${timeLeft <= 10 ? "animate-timer-danger" : timeLeft <= 20 ? "animate-timer-warn" : ""}`}
+              className={`font-[family-name:var(--font-space-mono)] font-bold tabular-nums text-sm ${timeLeft <= 10 ? "animate-timer-danger" : timeLeft <= 20 ? "animate-timer-warn" : ""}`}
               style={{ color: timeLeft > 20 ? "var(--lab-text)" : undefined }}
             >
               {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:{String(timeLeft % 60).padStart(2, "0")}
             </span>
           </div>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "var(--lab-border)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalPlayers > 0 ? (votesIn / totalPlayers) * 100 : 0}%`, background: "var(--lab-warn)" }}
+              />
+            </div>
+            <span className="text-[10px] font-[family-name:var(--font-space-mono)] tabular-nums" style={{ color: "var(--lab-warn)" }}>
+              {votesIn}/{totalPlayers} VOTES
+            </span>
+          </div>
+        </div>
 
           {/* Vote cards */}
           {voted ? (
@@ -116,77 +135,22 @@ export default function MeetingModal({
               <p className="text-sm font-[family-name:var(--font-mono)] tracking-wider" style={{ color: "var(--lab-accent)" }}>
                 VOTE CAST — WAITING FOR OTHERS...
               </p>
-              {votedFor && (
-                <p className="text-xs text-[var(--lab-text-dim)]">
-                  You voted for: {playerNames[votedFor] ?? votedFor}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {alivePlayers.map((pid) => {
-                const isMe = pid === myPlayerId
-                return (
-                  <div key={pid} className="flex flex-col gap-2">
-                    <BorderGlow
-                      backgroundColor="#182030"
-                      borderRadius={6}
-                      glowRadius={20}
-                      glowIntensity={0.5}
-                      colors={["#FF3355", "#2A3A50"]}
-                      fillOpacity={0.3}
-                      data-string="impulse"
-                      data-string-position-strength="1"
-                      data-string-rotation-strength="0.2"
-                      data-string-rotation-max-angle="3"
-                      data-string-max-offset="6"
-                    >
-                      <div className="p-3 flex items-center justify-between">
-                        <span className="text-sm font-[family-name:var(--font-mono)]">
-                          {playerNames[pid] ?? pid}
-                          {isMe && <span className="text-[10px] text-[var(--lab-text-dim)] ml-2">(YOU)</span>}
-                        </span>
-                        {liveTally[pid] != null && (
-                          <span className="text-xs text-[var(--lab-warn)] font-[family-name:var(--font-mono)]">
-                            {liveTally[pid]}▲
-                          </span>
-                        )}
-                      </div>
-                    </BorderGlow>
-                    {!isMe && (
-                      <BorderGlow
-                        backgroundColor="transparent"
-                        borderRadius={6}
-                        glowRadius={15}
-                        glowIntensity={1.0}
-                        colors={["#FF3355", "#FF5577"]}
-                        fillOpacity={0.2}
-                      >
-                        <button
-                          data-string="magnetic"
-                          data-string-strength="0.4"
-                          onClick={() => castVote(pid)}
-                          className="w-full py-1.5 rounded text-xs font-bold tracking-widest uppercase cursor-pointer transition-colors font-[family-name:var(--font-mono)]"
-                          style={{
-                            background: "var(--lab-danger-dim)",
-                            color: "var(--lab-danger)",
-                            border: "1px solid var(--lab-danger)",
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,51,85,0.2)" }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = "var(--lab-danger-dim)" }}
-                        >
-                          VOTE
-                        </button>
-                      </BorderGlow>
-                    )}
-                    {isMe && (
-                      <div
-                        className="w-full py-1.5 rounded text-xs text-center tracking-widest uppercase font-[family-name:var(--font-mono)]"
-                        style={{ color: "var(--lab-text-dim)", border: "1px solid var(--lab-border)" }}
-                      >
-                        YOU
-                      </div>
-                    )}
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {alivePlayers.map((pid) => {
+              const isMe = pid === myPlayerId
+              return (
+                <div key={pid} className="flex flex-col gap-2">
+                  <div
+                    className="p-3 rounded border flex items-center justify-between"
+                    style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface-hi)" }}
+                  >
+                    <span className="text-sm font-[family-name:var(--font-space-mono)]">
+                      {playerNames[pid] ?? pid}
+                      {isMe && <span className="text-[10px] text-[var(--lab-text-dim)] ml-2">(YOU)</span>}
+                    </span>
                   </div>
                 )
               })}

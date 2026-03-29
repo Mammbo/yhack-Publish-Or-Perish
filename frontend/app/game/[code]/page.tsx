@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, use } from "react"
+import { useEffect, useState, useRef, use } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getSocket } from "@/lib/socket"
 import { initStringTune } from "@/lib/stringtune"
@@ -9,7 +9,6 @@ import LabHeader from "@/components/shared/LabHeader"
 import ImpostorBanner from "@/components/game/ImpostorBanner"
 import ProblemDisplay from "@/components/game/ProblemDisplay"
 import ContributionFeed from "@/components/game/ContributionFeed"
-import ContributionInput from "@/components/game/ContributionInput"
 import PlayerStatusBar from "@/components/game/PlayerStatusBar"
 import MeetingModal from "@/components/meeting/MeetingModal"
 import FluidBackground from "@/components/shared/FluidBackground"
@@ -17,7 +16,6 @@ import FluidBackground from "@/components/shared/FluidBackground"
 interface GameData {
   problem_statement: string
   players: string[]
-  first_turn: string
   player_names?: Record<string, string>
 }
 
@@ -31,32 +29,46 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
   const [playerNames, setPlayerNames] = useState<Record<string, string>>({})
   const [players, setPlayers] = useState<string[]>([])
   const [problem, setProblem] = useState("")
-  const [currentTurn, setCurrentTurn] = useState("")
   const [contributions, setContributions] = useState<Record<string, string>>({})
   const [latestContributor, setLatestContributor] = useState<string | undefined>()
   const [isImpostor, setIsImpostor] = useState(false)
   const [directive, setDirective] = useState<string | null>(null)
-  const [timerSeconds, setTimerSeconds] = useState<number | null>(null)
   const [phase, setPhase] = useState<"playing" | "voting">("playing")
   const [eliminatedPlayers, setEliminatedPlayers] = useState<string[]>([])
   const [callerName, setCallerName] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
+  const [input, setInput] = useState("")
+  const [submitting, setSubmitting] = useState(false)
 
-  const isMyTurn = currentTurn === myPlayerId && !submitted
+  // Ref so socket handlers always see latest playerNames without being in deps
+  const playerNamesRef = useRef<Record<string, string>>({})
+  playerNamesRef.current = playerNames
+
+  const myPlayerIdRef = useRef("")
 
   useEffect(() => {
-    initStringTune()
-
-    const pid = localStorage.getItem("player_id") ?? ""
+    const pid = sessionStorage.getItem("player_id") ?? ""
     setMyPlayerId(pid)
+    myPlayerIdRef.current = pid
 
     const stored = sessionStorage.getItem("game_start")
     if (stored) {
       const data: GameData = JSON.parse(stored)
       setProblem(data.problem_statement)
       setPlayers(data.players)
-      setCurrentTurn(data.first_turn)
       if (data.player_names) setPlayerNames(data.player_names)
+    }
+
+    // Refresh recovery — if sessionStorage was cleared (page reload), fetch from server
+    if (!stored && !isDemo) {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/state?room_code=${code}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.problem_statement) setProblem(d.problem_statement)
+          if (d.players) setPlayers(d.players)
+          if (d.player_names) setPlayerNames(d.player_names)
+          if (d.contributions) setContributions(d.contributions)
+        })
+        .catch(() => {})
     }
 
     if (isDemo) {
@@ -72,12 +84,30 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     }
 
     const socket = getSocket()
-    if (!socket.connected) socket.connect()
+    if (!socket.connected) {
+      socket.connect()
+      // Re-join the socket room after a page refresh
+      const pname = sessionStorage.getItem("player_name") ?? pid
+      socket.once("connect", () => {
+        socket.emit("join_room", { room_code: code, player_id: pid, player_name: pname })
+      })
+    }
+
+    // Fetch directive via HTTP — more reliable than the socket event which can
+    // be missed during React page navigation after game_start fires.
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/directive?room_code=${code}&player_id=${pid}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.is_impostor && d.directive) {
+          setIsImpostor(true)
+          setDirective(d.directive)
+        }
+      })
+      .catch(() => {})
 
     socket.on("game_start", (data: GameData) => {
       setProblem(data.problem_statement)
       setPlayers(data.players)
-      setCurrentTurn(data.first_turn)
       if (data.player_names) setPlayerNames(data.player_names)
     })
 
@@ -86,20 +116,14 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       setDirective(data.directive)
     })
 
-    socket.on("contribution_update", (data: { player_id: string; content: string; contributions_so_far: Record<string, string> }) => {
-      setContributions(data.contributions_so_far)
+    socket.on("contribution_update", (data: { player_id: string; contributions: Record<string, string> }) => {
+      setContributions(data.contributions)
       setLatestContributor(data.player_id)
-      setSubmitted(false)
-    })
-
-    socket.on("turn_update", (data: { current_player_id: string; time_remaining?: number }) => {
-      setCurrentTurn(data.current_player_id)
-      setTimerSeconds(data.time_remaining ?? null)
-      setSubmitted(false)
+      setSubmitting(false)
     })
 
     socket.on("meeting_called", (data: { caller_id: string }) => {
-      const name = playerNames[data.caller_id] ?? data.caller_id
+      const name = playerNamesRef.current[data.caller_id] ?? data.caller_id
       setCallerName(name)
       setPhase("voting")
     })
@@ -126,29 +150,25 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       socket.off("game_start")
       socket.off("impostor_directive")
       socket.off("contribution_update")
-      socket.off("turn_update")
       socket.off("meeting_called")
       socket.off("elimination")
       socket.off("vote_result")
       socket.off("game_over")
       socket.off("error")
     }
-  }, [code, router, isDemo, playerNames])
+  }, [code, router, isDemo])
 
-  function submitContribution(content: string) {
-    setSubmitted(true)
+  function submitContribution() {
+    if (!input.trim() || submitting) return
+    setSubmitting(true)
     if (isDemo) {
-      setContributions((prev) => ({ ...prev, [myPlayerId]: content }))
+      setContributions((prev) => ({ ...prev, [myPlayerId]: input.trim() }))
       setLatestContributor(myPlayerId)
-      setTimeout(() => {
-        const nextIdx = (players.indexOf(myPlayerId) + 1) % players.length
-        setCurrentTurn(players[nextIdx])
-        setSubmitted(false)
-      }, 1500)
+      setSubmitting(false)
       return
     }
     const socket = getSocket()
-    socket.emit("submit_contribution", { room_code: code, player_id: myPlayerId, content })
+    socket.emit("submit_contribution", { room_code: code, player_id: myPlayerId, content: input.trim() })
   }
 
   function callMeeting() {
@@ -166,8 +186,6 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
     router.push(`/results/${code}`)
   }
 
-  const currentPlayerName = playerNames[currentTurn] ?? currentTurn
-
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
       <FluidBackground speed="slow" />
@@ -175,47 +193,66 @@ export default function GamePage({ params }: { params: Promise<{ code: string }>
       <LabHeader
         roomCode={code}
         phase={phase}
-        timerSeconds={timerSeconds ?? undefined}
         onCallMeeting={callMeeting}
         showMeetingBtn={phase === "playing"}
       />
 
-      <div className="relative z-10 flex-1 flex flex-col gap-4 p-4 md:p-6 max-w-7xl mx-auto w-full">
+      <div className="flex-1 flex flex-col gap-4 p-4 md:p-6 max-w-5xl mx-auto w-full">
         {isImpostor && directive && <ImpostorBanner directive={directive} />}
 
         <ProblemDisplay problem={problem} />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 flex-1">
-          {/* Contributions feed */}
-          <div
-            className="rounded border p-4"
-            style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}
-          >
-            <ContributionFeed
-              contributions={contributions}
-              playerNames={playerNames}
-              latestPlayerId={latestContributor}
-            />
-          </div>
+        {/* Live contributions — everyone's entries visible at all times */}
+        <div className="rounded border p-4" style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}>
+          <ContributionFeed
+            contributions={contributions}
+            playerNames={playerNames}
+            latestPlayerId={latestContributor}
+          />
+        </div>
 
-          {/* Input area */}
-          <div
-            className="rounded border p-4"
-            style={{ borderColor: isMyTurn ? "var(--lab-accent)" : "var(--lab-border)", background: "var(--lab-surface)", transition: "border-color 0.3s ease" }}
+        {/* Always-open input — collaborative, no turns */}
+        <div
+          className="rounded border p-4 flex flex-col gap-3"
+          style={{ borderColor: "var(--lab-accent)", background: "var(--lab-surface)", boxShadow: "0 0 12px var(--lab-accent-dim)" }}
+        >
+          <p className="text-[10px] font-bold tracking-widest uppercase font-[family-name:var(--font-space-mono)]" style={{ color: "var(--lab-text-dim)" }}>
+            YOUR CONTRIBUTION
+          </p>
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={submitting}
+            placeholder="Write your section of the collaborative document..."
+            className="w-full px-3 py-3 rounded text-sm outline-none resize-none min-h-[120px] font-[family-name:var(--font-fira-code)] leading-relaxed"
+            style={{
+              background: "var(--lab-surface-hi)",
+              border: "1px solid var(--lab-border-hi)",
+              color: "var(--lab-text)",
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitContribution()
+            }}
+          />
+          <button
+            onClick={submitContribution}
+            disabled={!input.trim() || submitting}
+            className="w-full py-2.5 rounded text-sm font-bold tracking-widest uppercase transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-space-mono)]"
+            style={{ background: "var(--lab-accent)", color: "var(--lab-void)", border: "none" }}
+            onMouseEnter={(e) => { if (input.trim() && !submitting) e.currentTarget.style.boxShadow = "0 0 20px var(--lab-accent-dim)" }}
+            onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
           >
-            <ContributionInput
-              isMyTurn={isMyTurn}
-              currentPlayerName={currentPlayerName}
-              onSubmit={submitContribution}
-              disabled={submitted}
-            />
-          </div>
+            {submitting ? "SUBMITTING..." : "SUBMIT CONTRIBUTION →"}
+          </button>
+          <p className="text-[10px] text-[var(--lab-text-dim)] font-[family-name:var(--font-space-mono)] text-center">
+            ⌘ + ENTER to submit · You can update your entry at any time
+          </p>
         </div>
 
         <PlayerStatusBar
           players={players}
           playerNames={playerNames}
-          currentTurn={currentTurn}
+          currentTurn=""
           eliminatedPlayers={eliminatedPlayers}
           myPlayerId={myPlayerId}
         />

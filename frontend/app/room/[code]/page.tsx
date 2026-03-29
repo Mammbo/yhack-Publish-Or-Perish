@@ -33,10 +33,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   useEffect(() => {
     initStringTune()
 
-    const pid = localStorage.getItem("player_id") ?? crypto.randomUUID()
-    const pname = localStorage.getItem("player_name") ?? "Researcher"
-    localStorage.setItem("player_id", pid)
-    localStorage.setItem("player_name", pname)
+    const pid = sessionStorage.getItem("player_id") ?? crypto.randomUUID()
+    const pname = sessionStorage.getItem("player_name") ?? "Researcher"
+    sessionStorage.setItem("player_id", pid)
+    sessionStorage.setItem("player_name", pname)
     setMyPlayerId(pid)
     setMyPlayerName(pname)
 
@@ -116,7 +116,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   }
 
   const isHost = myPlayerId === hostId || players.length === 0
-  const canStart = players.length >= 2 || isDemo
+  const uploadDone = phase === "ingesting"
+  const canStart = (players.length >= 4 && uploadDone) || isDemo
 
   return (
     <div className="min-h-screen flex flex-col lab-grid-bg">
@@ -231,24 +232,13 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               colors={["#00DFA2", "#00E89C", "#00B87A"]}
               fillOpacity={0.2}
             >
-              <button
-                data-string="magnetic"
-                data-string-radius="300"
-                data-string-strength="0.4"
-                onClick={beginExperiment}
-                disabled={!canStart}
-                className="w-full py-3 rounded font-bold tracking-widest uppercase text-sm transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed font-[family-name:var(--font-mono)]"
-                style={{
-                  background: canStart ? "var(--lab-accent)" : "var(--lab-surface-hi)",
-                  color: canStart ? "var(--lab-void)" : "var(--lab-text-dim)",
-                  border: "none",
-                }}
-                onMouseEnter={(e) => { if (canStart) e.currentTarget.style.boxShadow = "0 0 24px var(--lab-accent-dim)" }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none" }}
-              >
-                {canStart ? "BEGIN EXPERIMENT →" : `NEED ${2 - players.length} MORE RESEARCHER${2 - players.length !== 1 ? "S" : ""}`}
-              </button>
-            </BorderGlow>
+              {canStart
+                ? "BEGIN EXPERIMENT →"
+                : players.length < 4
+                  ? `NEED ${4 - players.length} MORE RESEARCHER${4 - players.length !== 1 ? "S" : ""}`
+                  : "UPLOAD MATERIALS FIRST"
+              }
+            </button>
           )}
         </div>
 
