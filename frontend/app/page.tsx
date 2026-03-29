@@ -46,23 +46,27 @@ export default function LandingPage() {
         {/* Title */}
         <div className="flex flex-col items-center gap-4 text-center">
           <h1
-            className="hero-title font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-5xl md:text-6xl font-semibold text-[var(--lab-text)]"
-            style={{
-              fontVariationSettings: "'GRAD' 140",
-              textShadow: "0 0 40px var(--lab-accent-dim)",
-            }}
+            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-5xl md:text-6xl font-semibold text-[var(--lab-text)]"
+            style={{ fontVariationSettings: "'GRAD' 140", textShadow: "0 0 40px var(--lab-accent-dim)" }}
           >
-            PUBLISH OR
+            PUBLISH
           </h1>
 
+          <span
+            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] text-5xl md:text-6xl font-semibold text-[var(--lab-accent)]"
+            style={{ fontVariationSettings: "'GRAD' 140" }}
+          >
+            OR
+          </span>
+
           {/* PERISH — ASCIIText effect */}
-          <div className="relative w-full" style={{ height: "clamp(80px, 12vw, 140px)" }}>
+          <div className="relative w-full" style={{ height: "clamp(100px, 15vw, 170px)" }}>
             <ASCIIText
               text="PERISH"
               asciiFontSize={6}
-              textFontSize={200}
+              textFontSize={240}
               textColor="#D8DEE9"
-              planeBaseHeight={8}
+              planeBaseHeight={9}
               enableWaves
             />
           </div>
