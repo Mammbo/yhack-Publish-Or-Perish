@@ -50,13 +50,13 @@ export default function LandingPage() {
             data-string-id="hero-title"
             data-string-split="char[start]"
             data-string-repeat
-            className="hero-title font-[family-name:var(--font-mono)] text-5xl md:text-6xl font-bold uppercase tracking-[0.3em] text-[var(--lab-text)]"
+            className="hero-title font-[family-name:var(--font-mono)] text-5xl md:text-6xl font-semibold uppercase tracking-[0.3em] text-[var(--lab-text)]"
             style={{ textShadow: "0 0 40px var(--lab-accent-dim)" }}
           >
             PUBLISH
           </h1>
 
-          <span className="font-[family-name:var(--font-mono)] text-5xl md:text-6xl font-bold uppercase tracking-[0.3em] text-[var(--lab-accent)]">
+          <span className="font-[family-name:var(--font-mono)] text-5xl md:text-6xl font-semibold uppercase tracking-[0.3em] text-[var(--lab-accent)]">
             OR
           </span>
 
@@ -67,7 +67,7 @@ export default function LandingPage() {
           >
             <ASCIIText
               text="PERISH"
-              asciiFontSize={11}
+              asciiFontSize={6}
               textFontSize={200}
               textColor="#D8DEE9"
               planeBaseHeight={8}
