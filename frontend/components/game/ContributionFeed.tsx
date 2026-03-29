@@ -50,7 +50,7 @@ export default function ContributionFeed({ contributions, playerNames, latestPla
               <div className="markdown-body text-sm leading-relaxed" style={{ color: "var(--lab-text)" }}>
                 <ReactMarkdown>{text}</ReactMarkdown>
               </div>
-            </div>
+            </BorderGlow>
           )
         })
       )}
