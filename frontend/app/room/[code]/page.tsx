@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, use } from "react"
+import { useEffect, useRef, useState, use } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { getSocket } from "@/lib/socket"
 import { initStringTune } from "@/lib/stringtune"
@@ -20,6 +20,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const router = useRouter()
   const searchParams = useSearchParams()
   const isDemo = searchParams.get("demo") === "true"
+  const gameStartFallback = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [players, setPlayers] = useState<PlayerInfo[]>([])
   const [phase, setPhase] = useState<"waiting" | "ingesting" | "ready">("waiting")
@@ -77,6 +78,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     socket.on("upload_complete", () => setPhase("ingesting"))
 
     socket.on("game_start", (data: { problem_statement: string; players: string[]; first_turn: string; player_names?: Record<string, string> }) => {
+      if (gameStartFallback.current) clearTimeout(gameStartFallback.current)
       sessionStorage.setItem("game_start", JSON.stringify(data))
       router.push(`/game/${code}`)
     })
@@ -114,13 +116,21 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   async function beginExperiment() {
     if (isDemo) { startDemo(); return }
+    // Fallback: if game_start socket never arrives within 5s, go demo
+    gameStartFallback.current = setTimeout(startDemo, 5000)
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/mock-start`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/mock-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ room_code: code }),
       })
+      if (!res.ok) {
+        clearTimeout(gameStartFallback.current)
+        startDemo()
+      }
+      // else: wait for game_start socket event (fallback timer covers the miss case)
     } catch {
+      clearTimeout(gameStartFallback.current)
       startDemo()
     }
   }

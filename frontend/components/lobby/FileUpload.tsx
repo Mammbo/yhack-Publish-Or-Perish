@@ -61,17 +61,20 @@ export default function FileUpload({ roomCode, onUploadComplete }: FileUploadPro
     }, 200)
 
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/upload`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/upload`, {
         method: "POST",
         body: formData,
       })
       clearInterval(progressInterval)
       setFiles((prev) => prev.map((fp) => ({ ...fp, progress: 100, done: true })))
-      onUploadComplete?.()
+      if (res.ok) {
+        onUploadComplete?.()
+      } else {
+        setFiles((prev) => prev.map((fp) => ({ ...fp, error: `Upload failed (${res.status})` })))
+      }
     } catch {
       clearInterval(progressInterval)
-      setFiles((prev) => prev.map((fp) => ({ ...fp, progress: 100, done: true })))
-      onUploadComplete?.()
+      setFiles((prev) => prev.map((fp) => ({ ...fp, error: "Upload failed — check connection" })))
     } finally {
       setUploading(false)
     }
