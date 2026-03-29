@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react"
 
-const STEPS = [
-  "SCANNING MATERIALS...",
-  "CLASSIFYING RESEARCH DOMAIN...",
-  "ENRICHING WITH WEB CONTEXT...",
-  "GENERATING EXPERIMENT PROTOCOL...",
-  "ASSIGNING LAB ROLES...",
-  "DETECTING ANOMALIES IN THE TEAM...",
+// Durations match the real pipeline roughly:
+// extract text → classify → gemini search → generate game → assign → done
+const STEPS: { label: string; ms: number }[] = [
+  { label: "SCANNING MATERIALS...",          ms: 4000  },
+  { label: "CLASSIFYING RESEARCH DOMAIN...", ms: 6000  },
+  { label: "ENRICHING WITH WEB CONTEXT...",  ms: 14000 },
+  { label: "GENERATING EXPERIMENT PROTOCOL...", ms: 22000 },
+  { label: "ASSIGNING LAB ROLES...",         ms: 5000  },
+  { label: "DETECTING ANOMALIES IN THE TEAM...", ms: 4000 },
 ]
 
 export default function IngestionLoader() {
@@ -16,23 +18,24 @@ export default function IngestionLoader() {
   const [activeStep, setActiveStep] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
     let step = 0
-    const advance = () => {
-      if (step >= STEPS.length) return
-      const current = step
-      step++
+
+    function advance() {
+      if (cancelled || step >= STEPS.length) return
+      const current = step++
       setActiveStep(current)
 
-      // Mark complete after 2.5s, then advance
       setTimeout(() => {
+        if (cancelled) return
         setCompletedSteps((prev) => [...prev, current])
         setActiveStep(current + 1)
-        if (current + 1 < STEPS.length) {
-          setTimeout(advance, 100)
-        }
-      }, 2500)
+        if (current + 1 < STEPS.length) advance()
+      }, STEPS[current].ms)
     }
+
     advance()
+    return () => { cancelled = true }
   }, [])
 
   return (
@@ -40,7 +43,7 @@ export default function IngestionLoader() {
       <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-2">
         AI PIPELINE ACTIVE
       </p>
-      {STEPS.map((step, i) => {
+      {STEPS.map(({ label }, i) => {
         const done = completedSteps.includes(i)
         const active = activeStep === i && !done
 
@@ -48,11 +51,10 @@ export default function IngestionLoader() {
 
         return (
           <div
-            key={step}
+            key={label}
             className="flex items-center gap-3 animate-slide-up-fade"
-            style={{ animationDelay: `${i * 0.1}s` }}
+            style={{ animationDelay: `${i * 0.05}s` }}
           >
-            {/* Icon */}
             <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
               {done ? (
                 <span style={{ color: "var(--lab-accent)" }} className="text-sm font-bold">✓</span>
@@ -70,7 +72,7 @@ export default function IngestionLoader() {
               className="text-xs font-[family-name:var(--font-mono)] tracking-wider"
               style={{ color: done ? "var(--lab-accent)" : active ? "var(--lab-text)" : "var(--lab-text-dim)" }}
             >
-              {step}
+              {label}
             </span>
           </div>
         )
