@@ -50,6 +50,7 @@ class MockStartRequest(BaseModel):
 
 class GameReadyRequest(BaseModel):
     room_code: str
+    content: dict  # AI-generated payload forwarded directly from the pipeline worker
 
 
 class GameFailedRequest(BaseModel):
@@ -152,9 +153,10 @@ async def game_ready(body: GameReadyRequest):
     All other players receive only the problem_statement.
     """
     room_code = body.room_code
-    content = await state.get_content(room_code)
-    if not content:
-        raise HTTPException(status_code=400, detail="No game content in Redis yet")
+    if not body.content:
+        raise HTTPException(status_code=400, detail="No game content provided")
+    await state.set_content(room_code, body.content)
+    content = body.content
 
     players = await state.get_players(room_code)
     player_names = await state.get_player_names(room_code)

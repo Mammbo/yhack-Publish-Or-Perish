@@ -58,7 +58,8 @@ def process_files_and_generate_game(
         set_game_ready(room_code, game_payload)
         httpx.post(
             f"{os.environ['BACKEND_URL']}/room/game-ready",
-            params={"room_code": room_code},
+            json={"room_code": room_code, "content": game_payload},
+            timeout=30,
         )
 
     except Exception as exc:
@@ -66,6 +67,7 @@ def process_files_and_generate_game(
         update_room(room_code, {"state": "failed"})
         httpx.post(
             f"{os.environ['BACKEND_URL']}/room/game-failed",
-            params={"room_code": room_code},
+            json={"room_code": room_code},
+            timeout=10,
         )
         raise self.retry(exc=exc, countdown=5)
