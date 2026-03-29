@@ -1,7 +1,10 @@
 "use client"
 
 import { useEffect } from "react"
+import dynamic from "next/dynamic"
 import { initStringTune } from "@/lib/stringtune"
+
+const ASCIIText = dynamic(() => import("@/components/ui/ASCIIText"), { ssr: false })
 import CreateRoom from "@/components/landing/CreateRoom"
 import JoinRoom from "@/components/landing/JoinRoom"
 import FluidBackground from "@/components/shared/FluidBackground"
@@ -43,19 +46,26 @@ export default function LandingPage() {
         {/* Title */}
         <div className="flex flex-col items-center gap-4 text-center">
           <h1
-            className="hero-title font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none"
+            className="hero-title font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-5xl md:text-6xl font-semibold text-[var(--lab-text)]"
             style={{
               fontVariationSettings: "'GRAD' 140",
               textShadow: "0 0 40px var(--lab-accent-dim)",
             }}
           >
-            <span className="text-[var(--lab-text)] text-5xl md:text-6xl font-semibold">
-              PUBLISH OR{" "}
-            </span>
-            <span className="text-[var(--lab-accent)] text-6xl md:text-7xl font-semibold">
-              PERISH
-            </span>
+            PUBLISH OR
           </h1>
+
+          {/* PERISH — ASCIIText effect */}
+          <div className="relative w-full" style={{ height: "clamp(80px, 12vw, 140px)" }}>
+            <ASCIIText
+              text="PERISH"
+              asciiFontSize={6}
+              textFontSize={200}
+              textColor="#D8DEE9"
+              planeBaseHeight={8}
+              enableWaves
+            />
+          </div>
 
           {/* Divider with diamond */}
           <div className="relative flex items-center w-48">
