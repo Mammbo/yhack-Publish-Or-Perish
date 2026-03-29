@@ -8,6 +8,7 @@ const ASCIIText = dynamic(() => import("@/components/ui/ASCIIText"), { ssr: fals
 import CreateRoom from "@/components/landing/CreateRoom"
 import JoinRoom from "@/components/landing/JoinRoom"
 import FluidBackground from "@/components/shared/FluidBackground"
+import BorderGlow from "@/components/ui/BorderGlow"
 
 export default function LandingPage() {
   useEffect(() => {
@@ -44,7 +45,15 @@ export default function LandingPage() {
       {/* Content */}
       <div className="relative z-10 w-full max-w-4xl mx-auto px-6 flex flex-col items-center gap-10">
         {/* Title */}
-        <div className="flex flex-col items-center gap-2 text-center w-full">
+        <BorderGlow
+          backgroundColor="#111822"
+          borderRadius={12}
+          glowRadius={50}
+          glowIntensity={0.7}
+          colors={["#00DFA2", "#3399FF"]}
+          fillOpacity={0.3}
+        >
+        <div className="flex flex-col items-center gap-2 text-center w-full px-10 py-8">
           <h1
             className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-[68px] md:text-[80px] font-semibold text-[var(--lab-text)]"
             style={{ fontVariationSettings: "'GRAD' 140", textShadow: "0 0 40px var(--lab-accent-dim)" }}
@@ -90,6 +99,7 @@ export default function LandingPage() {
             Expose the fraud before they bring the whole lab down.
           </p>
         </div>
+        </BorderGlow>
 
         {/* Action cards */}
         <div
@@ -104,20 +114,29 @@ export default function LandingPage() {
         </div>
 
         {/* Publication status bar — decorative */}
-        <div className="flex flex-col items-center gap-2 w-full max-w-xs">
-          <div className="flex gap-1 w-full">
-            {["SUBMITTED", "UNDER REVIEW", "REVISION", "ACCEPTED", "PUBLISHED"].map((s, i) => (
-              <div key={s} className={`pub-status-segment ${i === 0 ? "active" : ""}`} />
-            ))}
+        <BorderGlow
+          backgroundColor="#111822"
+          borderRadius={8}
+          glowRadius={25}
+          glowIntensity={0.5}
+          colors={["#00DFA2", "#3399FF"]}
+          fillOpacity={0.3}
+        >
+          <div className="flex flex-col items-center gap-2 w-full max-w-xs px-6 py-4">
+            <div className="flex gap-1 w-full">
+              {["SUBMITTED", "UNDER REVIEW", "REVISION", "ACCEPTED", "PUBLISHED"].map((s, i) => (
+                <div key={s} className={`pub-status-segment ${i === 0 ? "active" : ""}`} />
+              ))}
+            </div>
+            <p className="text-[9px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
+              PUBLICATION STATUS
+            </p>
           </div>
-          <p className="text-[9px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
-            PUBLICATION STATUS
-          </p>
-        </div>
+        </BorderGlow>
       </div>
 
       {/* Footer */}
-      <footer className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-4">
+      <footer className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-8 py-4" style={{ background: "var(--lab-surface)", borderTop: "1px solid var(--lab-border)" }}>
         <p className="text-[10px] tracking-widest text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] uppercase">
           POWERED BY K2 THINK V2 · GEMINI 2.5 PRO · MONGODB ATLAS
         </p>
