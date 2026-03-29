@@ -121,16 +121,24 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   async function beginExperiment() {
     if (isDemo) { startDemo(); return }
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
+    if (!apiUrl) {
+      console.error("[beginExperiment] NEXT_PUBLIC_API_URL is not set — cannot reach backend")
+      return
+    }
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/room/mock-start`, {
+      const res = await fetch(`${apiUrl}/room/mock-start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ room_code: code }),
       })
-      if (!res.ok) startDemo()
+      if (!res.ok) {
+        const text = await res.text()
+        console.error(`[beginExperiment] mock-start failed ${res.status}: ${text}`)
+      }
       // on success: wait for game_start socket event
-    } catch {
-      startDemo()
+    } catch (err) {
+      console.error("[beginExperiment] network error:", err)
     }
   }
 
