@@ -167,8 +167,8 @@ export default function ResultsPage({ params }: { params: Promise<{ code: string
 
         {revealPhase >= 4 && result?.votes && (
           <div
-            className="animate-fade-in flex flex-col gap-2 w-full max-w-xs"
-            style={{ animationDelay: "0.3s" }}
+            className="animate-fade-in flex flex-col gap-2 w-full max-w-xs rounded border p-4"
+            style={{ animationDelay: "0.3s", background: "var(--lab-surface)", borderColor: "var(--lab-border)" }}
           >
             <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
               VOTE TALLY

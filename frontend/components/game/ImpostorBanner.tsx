@@ -4,7 +4,7 @@ export default function ImpostorBanner({ directive }: { directive: string }) {
   return (
     <div
       className="relative rounded border p-4 animate-fade-in"
-      style={{ background: "var(--lab-danger-dim)", borderColor: "var(--lab-danger)" }}
+      style={{ background: "var(--lab-surface)", borderColor: "var(--lab-danger)" }}
     >
       {/* Pulsing dot */}
       <div
