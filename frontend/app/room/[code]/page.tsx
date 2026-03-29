@@ -51,11 +51,21 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     }
 
     const socket = getSocket()
-    socket.connect()
+
+    const emitJoin = () => {
+      socket.emit("join_room", { room_code: code, player_id: pid, player_name: pname })
+    }
+
+    if (socket.connected) {
+      setIsConnected(true)
+      emitJoin()
+    } else {
+      socket.connect()
+    }
 
     socket.on("connect", () => {
       setIsConnected(true)
-      socket.emit("join_room", { room_code: code, player_id: pid, player_name: pname })
+      emitJoin()
     })
     socket.on("disconnect", () => setIsConnected(false))
 

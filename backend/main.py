@@ -406,8 +406,8 @@ async def join_room(sid, data):
     player_name = data.get("player_name", player_id)
 
     if not await state.room_exists(room_code):
-        await sio.emit("error", {"message": "Room not found"}, to=sid)
-        return
+        # Auto-create the room if it wasn't pre-created via HTTP (e.g. CORS failure fallback)
+        await state.create_room(room_code, player_id)
     if await state.player_count(room_code) >= 4:
         await sio.emit("error", {"message": "Room is full"}, to=sid)
         return
