@@ -44,7 +44,7 @@ export default function JoinRoom() {
       glowIntensity={0.8}
       colors={["#00DFA2", "#00B87A", "#3399FF"]}
       fillOpacity={0.3}
-      className="p-8"
+      className=""
       data-string="impulse"
       data-string-position-strength="2"
       data-string-rotation-strength="0.5"
@@ -52,7 +52,7 @@ export default function JoinRoom() {
       data-string-max-offset="15"
       data-string-position-friction="0.2"
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 p-8">
         <div>
           <p className="text-[10px] font-bold tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] mb-1">
             JOIN ACTIVE LAB
