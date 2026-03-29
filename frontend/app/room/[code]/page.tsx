@@ -201,7 +201,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 <div
                   key={`empty-${i}`}
                   className="p-4 rounded border border-dashed flex items-center gap-3"
-                  style={{ borderColor: "var(--lab-border)", background: "transparent" }}
+                  style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}
                 >
                   <div className="w-10 h-10 rounded-full border border-dashed flex items-center justify-center" style={{ borderColor: "var(--lab-border)" }}>
                     <span style={{ color: "var(--lab-text-dim)" }} className="text-sm">?</span>
