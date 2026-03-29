@@ -22,10 +22,15 @@ and cleanup is guaranteed even if startup crashes.
 
 import asyncio
 import json
+import os
 import random
 import string
+import sys
 from contextlib import asynccontextmanager
 from typing import List
+
+# Make the repo root importable so ai_pipeline/* works from the backend service
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import socketio
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -292,6 +297,76 @@ async def mock_start(body: MockStartRequest):
     return {"status": "mock game started", "impostor": impostor_id}
 
 
+async def run_ai_pipeline(room_code: str, saved_files: list):
+    """
+    Runs the full AI pipeline in a thread pool so blocking Gemini/file-IO
+    calls don't stall the event loop. Replaces the Celery worker entirely —
+    everything runs in-process, no BACKEND_URL round-trip needed.
+    """
+    try:
+        def _pipeline():
+            from ai_pipeline.extract import extract_text, chunk_text
+            from ai_pipeline.gemini import (
+                classify_and_build_search_prompt,
+                gemini_search,
+                generate_game,
+            )
+            all_chunks = []
+            for f in saved_files:
+                text = extract_text(f["path"], f["type"])
+                all_chunks.extend(chunk_text(text, source=f["name"]))
+            if not all_chunks:
+                raise ValueError("No text extracted from uploaded files")
+            classification = classify_and_build_search_prompt(all_chunks)
+            research = gemini_search(
+                search_prompt=classification["gemini_search_prompt"],
+                subject=classification["subject"],
+            )
+            return generate_game(classification, research, 4)
+
+        game_payload = await asyncio.to_thread(_pipeline)
+
+        await state.set_content(room_code, game_payload)
+        players = await state.get_players(room_code)
+        player_names = await state.get_player_names(room_code)
+        impostor_id = await state.assign_impostor(room_code)
+        try:
+            await state.transition_state(room_code, "playing")
+        except ValueError:
+            pass  # room already transitioned (e.g. host hit mock-start)
+
+        await sio.emit(
+            "game_start",
+            {
+                "problem_statement": game_payload["problem_statement"],
+                "players": players,
+                "player_names": player_names,
+            },
+            room=room_code,
+        )
+        impostor_sid = next(
+            (sid for sid, d in connected.items() if d["player_id"] == impostor_id), None
+        )
+        if impostor_sid:
+            await sio.emit(
+                "impostor_directive",
+                {"directive": game_payload["impostor_directive"]},
+                to=impostor_sid,
+            )
+
+    except Exception as exc:
+        print(f"[pipeline] Error for room {room_code}: {exc}")
+        try:
+            await state.transition_state(room_code, "waiting")
+        except Exception:
+            pass
+        await sio.emit(
+            "error",
+            {"message": "AI pipeline failed. Please try uploading again."},
+            room=room_code,
+        )
+
+
 @app.post("/upload")
 async def upload_files(room_code: str, files: List[UploadFile] = File(...)):
     if not await state.room_exists(room_code):
@@ -339,9 +414,7 @@ async def upload_files(room_code: str, files: List[UploadFile] = File(...)):
 
     await state.transition_state(room_code, "ingesting")
 
-    from tasks import process_files_and_generate_game
-
-    process_files_and_generate_game.delay(room_code, saved_files)
+    asyncio.create_task(run_ai_pipeline(room_code, saved_files))
 
     await sio.emit("upload_complete", {"room_code": room_code}, room=room_code)
 
