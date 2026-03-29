@@ -44,7 +44,7 @@ export default function JoinRoom() {
       glowIntensity={0.8}
       colors={["#00DFA2", "#00B87A", "#3399FF"]}
       fillOpacity={0.3}
-      className="p-6"
+      className="p-8"
       data-string="impulse"
       data-string-position-strength="2"
       data-string-rotation-strength="0.5"
