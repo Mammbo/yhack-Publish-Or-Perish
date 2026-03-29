@@ -46,7 +46,7 @@ export default function LandingPage() {
         {/* Title */}
         <div className="flex flex-col items-center gap-4 text-center">
           <h1
-            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-5xl md:text-6xl font-semibold text-[var(--lab-text)] -mt-20"
+            className="font-[family-name:var(--font-display)] uppercase tracking-[0.15em] leading-none text-5xl md:text-6xl font-semibold text-[var(--lab-text)] -mt-5"
             style={{ fontVariationSettings: "'GRAD' 140", textShadow: "0 0 40px var(--lab-accent-dim)" }}
           >
             PUBLISH
@@ -60,7 +60,7 @@ export default function LandingPage() {
           </span>
 
           {/* PERISH — ASCIIText effect */}
-          <div className="relative w-full -mt-32" style={{ height: "clamp(100px, 15vw, 170px)" }}>
+          <div className="relative w-full mt-30" style={{ height: "clamp(100px, 15vw, 170px)" }}>
             <ASCIIText
               text="PERISH"
               asciiFontSize={6}
