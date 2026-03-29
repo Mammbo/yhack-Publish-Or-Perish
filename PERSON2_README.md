@@ -2,7 +2,7 @@
 
 **Own:** File parsing, chunking, Gemini 2.5 Pro integration, K2 Thinking integration, Celery tasks
 
-**Your job:** Take whatever files players upload, extract the text, enrich it with web context via Gemini, then use K2 Thinking to reason out a fair, subject-appropriate game — a problem statement all players see, and a hidden sabotage directive only the impostor sees.
+**Your job:** Take whatever files players upload, extract the text, use K2 to classify the subject and write a targeted search prompt, hand that to Gemini to search the web for verified content, then pass Gemini's research back to K2 to reason out a fair, subject-appropriate game — a problem statement all players see, and a hidden sabotage directive only the impostor sees.
 
 ---
 
@@ -10,11 +10,23 @@
 
 ```
 Person 4 (upload) → saves file to temp storage → triggers your Celery task
-You               → parse file → call Gemini → call K2 → write result to Redis
-Person 1 (backend)→ reads Redis → starts game → sends directive to impostor
+You               → parse file → K2 (classify + write search prompt) → Gemini (web search only) → K2 (generate game) → write result to MongoDB
+Person 1 (backend)→ reads MongoDB → starts game → sends directive to impostor
 ```
 
-Your output is a JSON blob in Redis. Everything downstream depends on it being clean.
+Your output is a JSON document in MongoDB. Everything downstream depends on it being clean.
+
+---
+
+## Architecture: Why This Split
+
+| Model | Role | Why |
+|---|---|---|
+| K2 Think v2 (Call 1) | Classify subject + write Gemini search prompt | K2 reasons about what to look for, not just what's in the notes |
+| Gemini 2.5 Pro | Web search only — return verified facts, problems, code snippets | Gemini's strength is grounded web retrieval, not game design |
+| K2 Think v2 (Call 2) | Take Gemini's research and generate the full balanced game | Game balance is a reasoning problem — subtlety of sabotage requires deliberation |
+
+Gemini never generates game content. K2 never searches the web. Each does what it's built for.
 
 ---
 
@@ -23,12 +35,13 @@ Your output is a JSON blob in Redis. Everything downstream depends on it being c
 | Tech | Role | Docs |
 |---|---|---|
 | Celery | Async task queue — runs your AI jobs in the background | https://docs.celeryq.dev/en/stable/ |
-| Redis | Celery broker + result backend | https://redis.io/docs/latest/develop/data-types/ |
+| Redis | Celery broker only (not game state) | https://redis.io/docs/latest/ |
+| MongoDB | Game state storage — rooms, content, players | https://www.mongodb.com/docs/drivers/pymongo/ |
 | PyMuPDF (fitz) | PDF text + image extraction | https://pymupdf.readthedocs.io/en/latest/ |
 | python-pptx | PowerPoint text extraction | https://python-pptx.readthedocs.io/en/latest/ |
 | python-docx | Word doc text extraction | https://python-docx.readthedocs.io/en/latest/ |
-| Gemini 2.5 Pro | Web-grounded problem generation | https://ai.google.dev/gemini-api/docs |
-| K2 Thinking (MBZUAI) | Reasoning model — game balance + impostor directive | https://ai71.ai/k2 |
+| Gemini 2.5 Pro | Web-grounded research retrieval only | https://ai.google.dev/gemini-api/docs |
+| K2 Think v2 (MBZUAI) | Classification + game generation via reasoning | https://ai71.ai/k2 |
 
 ---
 
@@ -36,10 +49,7 @@ Your output is a JSON blob in Redis. Everything downstream depends on it being c
 
 ### 1. Set Up Celery
 
-Celery runs your AI jobs as background tasks so FastAPI never blocks.
-
-**Celery getting started:** https://docs.celeryq.dev/en/stable/getting-started/first-steps-with-celery.html
-**Celery with Redis broker:** https://docs.celeryq.dev/en/stable/getting-started/backends-and-brokers/redis.html
+Celery runs your AI jobs as background tasks so FastAPI never blocks. Redis is used only as the Celery broker — game state goes to MongoDB.
 
 ```python
 from celery import Celery
@@ -53,10 +63,6 @@ celery_app = Celery(
 ```
 
 ### 2. File Extraction Per Type
-
-**PyMuPDF docs:** https://pymupdf.readthedocs.io/en/latest/tutorial.html
-**python-pptx docs:** https://python-pptx.readthedocs.io/en/latest/user/quickstart.html
-**python-docx docs:** https://python-docx.readthedocs.io/en/latest/
 
 ```python
 import fitz          # PyMuPDF
@@ -80,7 +86,7 @@ def extract_text(filepath: str, file_type: str) -> str:
         doc = Document(filepath)
         return "\n".join([p.text for p in doc.paragraphs])
 
-    elif file_type == "txt" or file_type == "md":
+    elif file_type in ("txt", "md"):
         with open(filepath, "r") as f:
             return f.read()
 
@@ -97,8 +103,6 @@ def extract_text(filepath: str, file_type: str) -> str:
 
 ### 3. Chunk the Text
 
-Split into overlapping chunks so Gemini has focused context rather than one massive dump. Tag each chunk with its source file.
-
 ```python
 def chunk_text(text: str, source: str, chunk_size: int = 500, overlap: int = 50) -> list[dict]:
     words = text.split()
@@ -113,162 +117,330 @@ def chunk_text(text: str, source: str, chunk_size: int = 500, overlap: int = 50)
 
 ---
 
-## Hours 4–10: Gemini Integration
+## Hours 4–10: K2 Call 1 — Classify + Write Gemini Search Prompt
 
-### What Gemini Does
-
-Gemini 2.5 Pro reads the chunked notes plus searches the web for additional context on the subject. Its job is to:
-1. Identify the subject area from the notes
-2. Generate a rich, specific collaborative problem based on that subject
-3. Generate a raw impostor directive (K2 will refine this)
-
-**Gemini API docs:** https://ai.google.dev/gemini-api/docs
-**Gemini web search grounding:** https://ai.google.dev/gemini-api/docs/grounding
-**google-generativeai Python SDK:** https://ai.google.dev/gemini-api/docs/quickstart?lang=python
+K2's first job is to read the chunked notes, identify the subject, and write a precise research prompt for Gemini to search against. K2 is better at this than Gemini because it reasons about *what to look for* rather than just summarizing what's there.
 
 ```python
-import google.generativeai as genai
-import os
+import requests, json, re, os
 
-genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-model = genai.GenerativeModel("gemini-2.5-pro")
-```
+K2_URL = "https://api.ai71.ai/v1/chat/completions"
 
-### Gemini Prompt
-
-```python
-def build_gemini_prompt(chunks: list[dict]) -> str:
-    notes_text = "\n\n".join([f"[{c['source']}]\n{c['text']}" for c in chunks])
-    return f"""
-You are generating content for a multiplayer study game called Publish or Perish.
-
-Here are a student's study notes:
-{notes_text}
-
-Based on these notes, do the following:
-1. Identify the subject area (e.g. calculus, organic chemistry, data structures, European history)
-2. Generate a collaborative problem that 4 players will work on together. It should be meaty enough that each player has a meaningful contribution to make.
-3. Generate a sabotage directive — a specific, plausible-sounding but wrong instruction that one player (the impostor) will secretly be told to follow. It should be subtle enough that other players won't immediately notice, but wrong enough to affect the outcome.
-
-Use web search to enrich your understanding of the subject before generating the problem.
-
-Return ONLY valid JSON matching this exact schema:
-{{
-  "subject": "string",
-  "problem_statement": "string — the problem shown to all players",
-  "raw_impostor_directive": "string — rough sabotage idea, K2 will refine this",
-  "web_sources": ["string"]
-}}
-"""
-```
-
-### Call Gemini with Web Grounding
-
-```python
-def call_gemini(chunks: list[dict]) -> dict:
-    prompt = build_gemini_prompt(chunks)
-    response = model.generate_content(
-        contents=prompt,
-        tools=[{"google_search_retrieval": {}}]
-    )
-    import json, re
-    text = response.text
-    # Strip markdown code fences if present
-    text = re.sub(r"```json|```", "", text).strip()
-    return json.loads(text)
-```
-
----
-
-## Hours 10–16: K2 Thinking Integration
-
-### What K2 Does
-
-K2 is a reasoning model. Give it Gemini's raw output and ask it to think carefully about whether the impostor directive is subtle enough, fair, and subject-appropriate. It refines the directive and validates the problem.
-
-**K2 API (confirm exact endpoint with team):** https://ai71.ai/k2
-
-```python
-import requests
-
-def call_k2(gemini_output: dict, player_count: int = 4) -> dict:
-    prompt = f"""
-You are balancing a multiplayer impostor game called Publish or Perish.
-
-Subject: {gemini_output['subject']}
-Problem given to all players: {gemini_output['problem_statement']}
-Proposed impostor sabotage: {gemini_output['raw_impostor_directive']}
-
-Think carefully and answer:
-1. Is this sabotage subtle enough that other players won't notice it immediately during play?
-2. Is it wrong enough that it will actually affect the outcome if not caught?
-3. Is the problem fair — can all {player_count} players make a meaningful contribution?
-4. Refine the impostor directive to be as plausible and natural-sounding as possible.
-
-Return ONLY valid JSON:
-{{
-  "problem_statement": "string — approved or slightly improved version",
-  "impostor_directive": "string — final, refined sabotage directive",
-  "reasoning": "string — brief explanation of your balance decisions"
-}}
-"""
+def _call_k2(prompt: str) -> str:
     response = requests.post(
-        "https://api.ai71.ai/v1/chat/completions",
+        K2_URL,
         headers={"Authorization": f"Bearer {os.environ['K2_API_KEY']}"},
         json={
             "model": "tiiuae/falcon-h1-34b",
             "messages": [{"role": "user", "content": prompt}]
         }
     )
-    import json, re
-    text = response.json()["choices"][0]["message"]["content"]
-    text = re.sub(r"```json|```", "", text).strip()
-    return json.loads(text)
+    return response.json()["choices"][0]["message"]["content"]
+
+def _parse_json(text: str) -> dict:
+    clean = re.sub(r"```json|```", "", text).strip()
+    return json.loads(clean)
+
+
+def k2_classify_and_prompt(chunks: list[dict]) -> dict:
+    notes_text = "\n\n".join([f"[{c['source']}]\n{c['text']}" for c in chunks[:10]])
+
+    prompt = f"""You are analyzing student study notes to prepare an educational game.
+
+NOTES:
+{notes_text}
+
+Your task has TWO parts.
+
+PART 1 — CLASSIFY
+Determine:
+- subject: the specific subject domain (e.g. "Linear Algebra", "Organic Chemistry")
+- game_mode: exactly one of ["coding", "stem", "conceptual"]
+  - coding: programming, CS theory, software engineering, algorithms
+  - stem: math, physics, chemistry, biology, economics — anything with quantitative multi-step problems
+  - conceptual: humanities, psychology, political science, history, literature, sociology
+
+PART 2 — WRITE A GEMINI SEARCH PROMPT
+Write a focused research prompt (150-200 words) instructing Gemini to search the web and return:
+- The 5-8 most important core concepts in this subject from these notes
+- For coding mode: a real, accurate code snippet (20-40 lines) relevant to the subject
+- For stem mode: a real multi-step problem (4-6 steps) with a known correct solution, typical of this subject
+- For conceptual mode: two closely related but meaningfully distinct terms from this subject that would confuse a student who only partially understands the material
+
+Respond ONLY as valid JSON, no markdown, no preamble:
+{{
+  "subject": "string",
+  "game_mode": "coding|stem|conceptual",
+  "key_topics": ["topic1", "topic2"],
+  "gemini_search_prompt": "string"
+}}"""
+
+    return _parse_json(_call_k2(prompt))
+```
+
+---
+
+## Hours 4–10: Gemini — Web Search Only
+
+Gemini's only job is to search the web and return verified factual content. It does not generate game content. No sabotage, no balance decisions — just research.
+
+```python
+import google.generativeai as genai
+
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+
+def gemini_search(search_prompt: str, subject: str, game_mode: str) -> dict:
+    prompt = f"""You are a research assistant. Use your web search to answer the following research request accurately.
+
+{search_prompt}
+
+Return your findings ONLY as valid JSON, no markdown, no preamble:
+{{
+  "subject": "{subject}",
+  "game_mode": "{game_mode}",
+  "core_concepts": [
+    {{"concept": "string", "explanation": "string"}}
+  ],
+  "raw_content": {{
+    "coding": {{
+      "language": "string",
+      "snippet": "full accurate code string",
+      "snippet_description": "what this code does"
+    }},
+    "stem": {{
+      "problem_statement": "string",
+      "steps": [
+        {{"step_num": 1, "operation": "string", "result": "string"}}
+      ],
+      "final_answer": "string",
+      "source": "textbook or URL this problem is drawn from"
+    }},
+    "conceptual": {{
+      "term_a": "string",
+      "term_b": "string",
+      "term_a_definition": "string",
+      "term_b_definition": "string",
+      "key_distinction": "string"
+    }}
+  }},
+  "web_sources": ["url1", "url2"]
+}}
+
+Only populate the field inside raw_content that matches game_mode: {game_mode}.
+Set the other two to null."""
+
+    model = genai.GenerativeModel("gemini-2.5-pro")
+    response = model.generate_content(
+        contents=prompt,
+        tools=[{"google_search_retrieval": {}}]
+    )
+    clean = re.sub(r"```json|```", "", response.text).strip()
+    return json.loads(clean)
+```
+
+---
+
+## Hours 10–16: K2 Call 2 — Generate the Game
+
+K2's second job is to take Gemini's verified research and reason through the full game design. This is a reasoning problem: deciding where to place the sabotage, how subtle to make it, and whether the game is winnable. A generation model gets this wrong.
+
+```python
+GAME_SCHEMAS = {
+    "coding": """{
+  "subject_type": "coding",
+  "game_content": {
+    "language": "string",
+    "code_file": "full code string",
+    "tasks": [
+      {"task_id": 1, "description": "string", "line_numbers": [n, m]}
+    ],
+    "impostor_sabotage": {
+      "description": "string",
+      "line_number": n,
+      "sabotaged_code": "string",
+      "why_subtle": "string"
+    }
+  }
+}""",
+    "stem": """{
+  "subject_type": "stem",
+  "game_content": {
+    "problem_statement": "string",
+    "steps": [
+      {"step_num": 1, "correct_answer": "string", "hint": "string"}
+    ],
+    "impostor_step": {
+      "step_num": 2,
+      "sabotaged_answer": "string",
+      "why_subtle": "string"
+    },
+    "final_answer": "string"
+  }
+}""",
+    "conceptual": """{
+  "subject_type": "conceptual",
+  "game_content": {
+    "real_word": "string",
+    "impostor_word": "string",
+    "why_close": "string",
+    "example_valid_associations": ["word1", "word2", "word3"],
+    "example_valid_description": "string"
+  }
+}"""
+}
+
+
+def k2_generate_game(k2_classification: dict, gemini_research: dict) -> dict:
+    mode = k2_classification["game_mode"]
+    subject = k2_classification["subject"]
+
+    prompt = f"""You are designing a balanced multiplayer impostor-style educational game.
+
+Subject: {subject}
+Game mode: {mode}
+
+Here is verified research about this subject retrieved from the web:
+{json.dumps(gemini_research, indent=2)}
+
+Using this research as your source of truth, reason carefully through:
+1. What tasks/steps to assign to players — they must be distinct and appropriately difficult
+2. Where to place the impostor sabotage — it must be subtle, not immediately obvious
+3. Whether the game is winnable — crewmates must be able to catch the impostor with careful attention
+
+For the impostor sabotage specifically, think through:
+- Would an inattentive player miss this? (good)
+- Would even an attentive player struggle to catch it? (too subtle — adjust)
+- Is it so obviously wrong it gets caught immediately? (too obvious — adjust)
+
+Return ONLY valid JSON matching this schema exactly, no markdown:
+{GAME_SCHEMAS[mode]}"""
+
+    return _parse_json(_call_k2(prompt))
+```
+
+---
+
+## MongoDB Interface
+
+```python
+from pymongo import MongoClient
+from datetime import datetime, timezone
+
+client = MongoClient(os.environ["MONGODB_URI"])
+db = client["publish_or_perish"]
+rooms = db["rooms"]
+
+def update_room(room_code: str, fields: dict) -> None:
+    rooms.update_one(
+        {"room_code": room_code},
+        {"$set": fields}
+    )
+
+def set_game_ready(room_code: str, game_mode: str, game_content: dict) -> None:
+    update_room(room_code, {
+        "state": "ready",
+        "game_mode": game_mode,
+        "game_content": game_content,
+        "updated_at": datetime.now(timezone.utc)
+    })
 ```
 
 ---
 
 ## The Full Celery Task
 
-This is what Person 4's upload endpoint triggers. When it finishes it calls Person 1's `/room/game-ready` endpoint.
-
-**Celery task docs:** https://docs.celeryq.dev/en/stable/userguide/tasks.html
+This is what Person 4's upload endpoint triggers. When it finishes it notifies Person 1's backend.
 
 ```python
 import httpx
+from celery import Celery
+
+celery_app = Celery("tasks", broker=os.environ["REDIS_URL"], backend=os.environ["REDIS_URL"])
+
+FALLBACKS = {
+    "coding": {
+        "subject_type": "coding",
+        "game_content": {
+            "language": "python",
+            "code_file": "def add(a, b):\n    return a - b\n",
+            "tasks": [{"task_id": 1, "description": "Verify the add function returns correct results", "line_numbers": [1, 2]}],
+            "impostor_sabotage": {
+                "description": "Subtraction used instead of addition",
+                "line_number": 2,
+                "sabotaged_code": "return a - b",
+                "why_subtle": "Easy to miss the minus sign at a glance"
+            }
+        }
+    },
+    "stem": {
+        "subject_type": "stem",
+        "game_content": {
+            "problem_statement": "Solve for x: 2x + 4 = 10",
+            "steps": [
+                {"step_num": 1, "correct_answer": "2x = 6", "hint": "Subtract 4 from both sides"},
+                {"step_num": 2, "correct_answer": "x = 3", "hint": "Divide both sides by 2"}
+            ],
+            "impostor_step": {"step_num": 1, "sabotaged_answer": "2x = 14", "why_subtle": "Adding instead of subtracting"},
+            "final_answer": "x = 3"
+        }
+    },
+    "conceptual": {
+        "subject_type": "conceptual",
+        "game_content": {
+            "real_word": "mitosis",
+            "impostor_word": "meiosis",
+            "why_close": "Both are cell division processes, easy to conflate",
+            "example_valid_associations": ["cell", "division", "chromosomes"],
+            "example_valid_description": "The process by which a cell duplicates its chromosomes and divides into two identical daughter cells"
+        }
+    }
+}
+
 
 @celery_app.task(bind=True, max_retries=2)
 def process_files_and_generate_game(self, room_code: str, file_paths: list[dict]):
+    """
+    file_paths: [{"path": "/tmp/...", "type": "pdf", "name": "lecture1.pdf"}, ...]
+    """
     try:
-        # 1. Extract + chunk all files
+        update_room(room_code, {"state": "ingesting"})
+
+        # Stage 1: Extract + chunk all files
         all_chunks = []
         for file_info in file_paths:
             text = extract_text(file_info["path"], file_info["type"])
             chunks = chunk_text(text, source=file_info["name"])
             all_chunks.extend(chunks)
 
-        # 2. Call Gemini
-        gemini_output = call_gemini(all_chunks)
+        if not all_chunks:
+            raise ValueError("No text could be extracted from uploaded files")
 
-        # 3. Call K2
-        k2_output = call_k2(gemini_output)
+        # Stage 2: K2 classifies subject + writes Gemini search prompt
+        k2_classification = k2_classify_and_prompt(all_chunks)
+        game_mode = k2_classification["game_mode"]
 
-        # 4. Write final content to Redis
-        import redis, json, os
-        r = redis.from_url(os.environ["REDIS_URL"], decode_responses=True)
-        final_content = {
-            "problem_statement": k2_output["problem_statement"],
-            "impostor_directive": k2_output["impostor_directive"],
-            "contribution_slots": 4
-        }
-        r.set(f"room:{room_code}:content", json.dumps(final_content))
+        # Stage 3: Gemini searches the web — research only, no game generation
+        gemini_research = gemini_search(
+            search_prompt=k2_classification["gemini_search_prompt"],
+            subject=k2_classification["subject"],
+            game_mode=game_mode
+        )
 
-        # 5. Notify Person 1's backend that the game is ready
+        # Stage 4: K2 reasons through game design using Gemini's research
+        game_payload = k2_generate_game(k2_classification, gemini_research)
+
+        # Write to MongoDB
+        set_game_ready(room_code, game_mode, game_payload)
+
+        # Notify Person 1's backend
         httpx.post(f"{os.environ['BACKEND_URL']}/room/game-ready?room_code={room_code}")
 
     except Exception as exc:
-        # Notify backend of failure so it can reset state
-        httpx.post(f"{os.environ['BACKEND_URL']}/room/game-failed?room_code={room_code}")
+        # Fall back to hardcoded game so room doesn't get stuck
+        print(f"[pipeline] Error for room {room_code}: {exc}")
+        fallback_mode = "stem"
+        set_game_ready(room_code, fallback_mode, FALLBACKS[fallback_mode])
+        httpx.post(f"{os.environ['BACKEND_URL']}/room/game-ready?room_code={room_code}")
         raise self.retry(exc=exc, countdown=5)
 ```
 
@@ -278,37 +450,25 @@ def process_files_and_generate_game(self, room_code: str, file_paths: list[dict]
 
 **The outputs will be garbage at first. That is normal. Iterate.**
 
-Common failure modes and fixes:
-
 | Problem | Fix |
 |---|---|
-| Gemini returns invalid JSON | Add `re.sub` to strip markdown fences, add try/except with fallback |
-| Impostor directive is too obvious ("just give the wrong answer") | Tighten K2 prompt — add examples of good vs bad directives |
-| Problem is too vague for players to contribute meaningfully | Add "each of 4 players must be able to add one distinct step or component" to Gemini prompt |
-| K2 changes the problem too much from Gemini's version | Instruct K2 to preserve the problem and only modify the directive |
-| API rate limit or timeout | Celery retry with `max_retries=2, countdown=5` |
-
-### Fallback Content
-
-If both AI calls fail, emit a generic fallback so the game isn't blocked:
-
-```python
-FALLBACK_CONTENT = {
-    "problem_statement": "Explain how a hash table works. Each player should describe one key aspect: structure, insertion, lookup, and collision handling.",
-    "impostor_directive": "When explaining lookup, describe it as always taking O(n) time regardless of load factor.",
-    "contribution_slots": 4
-}
-```
+| K2 misclassifies subject (e.g. "computational biology" → conceptual instead of stem) | Add explicit examples to the classify prompt |
+| Gemini returns invalid JSON | `re.sub` to strip markdown fences + try/except with fallback |
+| Gemini populates the wrong `raw_content` field | Restate the game_mode constraint at the end of the prompt |
+| K2 `why_subtle` is vague ("the answer is wrong") | Tighten the sabotage rubric in K2 Call 2 — add good/bad examples |
+| K2 changes the problem too much from Gemini's research | Instruct K2 explicitly: "use the problem from the research as-is, only design the sabotage" |
+| Either API times out | Celery retry with `max_retries=2, countdown=5` + fallback content on final failure |
 
 ---
 
 ## Project Setup
 
 ```bash
-pip install celery "redis[asyncio]" google-generativeai pymupdf python-pptx python-docx httpx python-dotenv
+pip install celery "redis[asyncio]" google-generativeai pymupdf python-pptx python-docx httpx pymongo python-dotenv
 
 # .env
-REDIS_URL=redis://...
+REDIS_URL=redis://...           # Celery broker only
+MONGODB_URI=mongodb+srv://...   # Game state
 GEMINI_API_KEY=...
 K2_API_KEY=...
 BACKEND_URL=https://api.publishorperish.com  # or http://localhost:8000 locally
@@ -317,4 +477,8 @@ BACKEND_URL=https://api.publishorperish.com  # or http://localhost:8000 locally
 celery -A tasks worker --loglevel=info
 ```
 
-**Celery worker docs:** https://docs.celeryq.dev/en/stable/userguide/workers.html
+---
+
+## Critical Path Note
+
+Person 1's state machine reads `game_content` and `game_mode` from MongoDB once state is `"ready"`. Your Celery task must write these fields and then hit `/room/game-ready` — that's the handoff. If this is late, Person 1 and Person 3 both block. Have the fallback content wired in by Hour 8 so integration testing can start even if the AI calls aren't tuned yet.

@@ -1,0 +1,11 @@
+celery
+redis
+pymupdf
+python-pptx
+python-docx
+httpx
+pymongo
+python-dotenv
+requests
+google-genai
+json-repair
