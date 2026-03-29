@@ -20,6 +20,13 @@ celery_app = Celery(
     "tasks", broker=os.environ["REDIS_URL"], backend=os.environ["REDIS_URL"]
 )
 
+BACKEND_URL = os.environ.get("BACKEND_URL", "").rstrip("/")
+if not BACKEND_URL:
+    raise RuntimeError(
+        "BACKEND_URL env var is not set. Set it to the Railway backend URL "
+        "(e.g. https://yhack-publish-or-perish-production-e377.up.railway.app)"
+    )
+
 
 @celery_app.task(bind=True, max_retries=2)
 def process_files_and_generate_game(
@@ -57,7 +64,7 @@ def process_files_and_generate_game(
         # ── Stage 5: Write to MongoDB + notify Person 1 ───────────────────────
         set_game_ready(room_code, game_payload)
         httpx.post(
-            f"{os.environ['BACKEND_URL']}/room/game-ready",
+            f"{BACKEND_URL}/room/game-ready",
             json={"room_code": room_code, "content": game_payload},
             timeout=30,
         )
@@ -66,7 +73,7 @@ def process_files_and_generate_game(
         print(f"[pipeline] Error for room {room_code}: {exc}")
         update_room(room_code, {"state": "failed"})
         httpx.post(
-            f"{os.environ['BACKEND_URL']}/room/game-failed",
+            f"{BACKEND_URL}/room/game-failed",
             json={"room_code": room_code},
             timeout=10,
         )
