@@ -76,7 +76,24 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       setPlayers(data.players.map((id) => ({ id, name: names[id] ?? id })))
     })
 
-    socket.on("upload_complete", () => setPhase("ingesting"))
+    socket.on("upload_complete", () => {
+      setPhase("ingesting")
+      // Auto-trigger mock-start if AI pipeline doesn't respond in 75s
+      gameStartFallback.current = setTimeout(async () => {
+        console.warn("[lobby] game_start not received in 75s — falling back to mock-start")
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
+        if (!apiUrl) return
+        try {
+          await fetch(`${apiUrl}/room/mock-start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ room_code: code }),
+          })
+        } catch (err) {
+          console.error("[lobby] mock-start fallback failed:", err)
+        }
+      }, 75000)
+    })
 
     socket.on("game_start", (data: { problem_statement: string; players: string[]; first_turn: string; player_names?: Record<string, string> }) => {
       if (gameStartFallback.current) clearTimeout(gameStartFallback.current)
@@ -84,8 +101,19 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       router.push(`/game/${code}`)
     })
 
-    // Pipeline failed — let the host override with mock content
-    socket.on("error", () => setPipelineFailed(true))
+    // Pipeline failed — trigger mock-start immediately
+    socket.on("error", (data: { message?: string }) => {
+      console.error("[lobby] pipeline error:", data?.message)
+      setPipelineFailed(true)
+      if (gameStartFallback.current) clearTimeout(gameStartFallback.current)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? ""
+      if (!apiUrl) return
+      fetch(`${apiUrl}/room/mock-start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ room_code: code }),
+      }).catch((err) => console.error("[lobby] mock-start on error failed:", err))
+    })
 
     return () => {
       socket.off("connect")

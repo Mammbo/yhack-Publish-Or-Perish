@@ -355,6 +355,7 @@ async def run_ai_pipeline(room_code: str, saved_files: list):
                 '}'
             )
 
+            print(f"[pipeline] Gemini prompt ({len(prompt)} chars):\n{prompt[:500]}...")
             resp = _httpx.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
                 params={"key": gemini_key},
@@ -364,12 +365,18 @@ async def run_ai_pipeline(room_code: str, saved_files: list):
                 },
                 timeout=90,
             )
+            print(f"[pipeline] Gemini status: {resp.status_code}")
             resp.raise_for_status()
-            parts = resp.json()["candidates"][0]["content"]["parts"]
+            raw_response = resp.json()
+            print(f"[pipeline] Gemini raw response: {json.dumps(raw_response)[:1000]}")
+            parts = raw_response["candidates"][0]["content"]["parts"]
             # Skip thought parts (thinkingBudget=0 should prevent them, but guard anyway)
             raw = next((p["text"] for p in parts if not p.get("thought")), parts[-1]["text"])
+            print(f"[pipeline] Gemini text output:\n{raw}")
             clean = re.sub(r"```json|```", "", raw).strip()
-            return json.loads(clean)
+            result = json.loads(clean)
+            print(f"[pipeline] Parsed game payload: {result}")
+            return result
 
         game_payload = await asyncio.to_thread(_pipeline)
 
