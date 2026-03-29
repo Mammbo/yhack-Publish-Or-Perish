@@ -1,12 +1,22 @@
+<<<<<<< HEAD
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 <<<<<<< HEAD
 # Environment variables — never commit these
 .env*
+=======
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Environment variables — never commit these
+>>>>>>> a5ce3ef (Working prototype)
 .env
 .env.local
 .env.production
 
+<<<<<<< HEAD
 # Dependencies
 /node_modules
 =======
@@ -24,6 +34,8 @@
 !.yarn/versions
 
 <<<<<<< HEAD
+=======
+>>>>>>> a5ce3ef (Working prototype)
 # Python
 __pycache__/
 *.py[cod]
@@ -31,6 +43,7 @@ __pycache__/
 *.pyd
 .Python
 
+<<<<<<< HEAD
 # Virtual environment
 venv/
 .venv/
@@ -46,6 +59,8 @@ env/
 # Production
 /build
 
+=======
+>>>>>>> a5ce3ef (Working prototype)
 # Temp files from file extraction
 /tmp/*.anki2
 /tmp/*.pdf
@@ -59,6 +74,7 @@ celerybeat.pid
 # Logs
 *.log
 logs/
+<<<<<<< HEAD
 =======
 # testing
 /coverage
@@ -86,12 +102,19 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 *.pem
+=======
+
+# OS
+.DS_Store
+Thumbs.db
+>>>>>>> a5ce3ef (Working prototype)
 
 # IDEs
 .vscode/
 .idea/
 *.swp
 *.swo
+<<<<<<< HEAD
 
 # Vercel
 .vercel
@@ -108,3 +131,5 @@ Thumbs.db
 >>>>>>> 15ecb9094c52bc11e48937212e7219427c6c8ca4
 *.tsbuildinfo
 next-env.d.ts
+=======
+>>>>>>> a5ce3ef (Working prototype)
