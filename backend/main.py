@@ -30,8 +30,10 @@ from contextlib import asynccontextmanager
 from typing import List
 
 import socketio
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 
@@ -90,6 +92,13 @@ async def lifespan(app: FastAPI):
 # ── FastAPI app ────────────────────────────────────────────────────────────────
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    print(f"[422] {request.method} {request.url} — {exc.errors()}")
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 app.add_middleware(
     CORSMiddleware,
