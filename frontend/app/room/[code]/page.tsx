@@ -258,9 +258,18 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
         {/* Right — Upload / Ingestion */}
         <div className="flex flex-col gap-4">
-          <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)]">
-            RESEARCH MATERIALS
-          </p>
+          <BorderGlow
+            backgroundColor="#111822"
+            borderRadius={6}
+            glowRadius={20}
+            glowIntensity={0.4}
+            colors={["#00DFA2", "#3399FF"]}
+            fillOpacity={0.3}
+          >
+            <p className="text-[10px] tracking-widest uppercase text-[var(--lab-text-dim)] font-[family-name:var(--font-mono)] px-4 py-2">
+              RESEARCH MATERIALS
+            </p>
+          </BorderGlow>
 
           {phase === "ingesting" ? (
             <IngestionLoader />

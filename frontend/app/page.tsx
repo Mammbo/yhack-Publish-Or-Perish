@@ -80,25 +80,32 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Divider with diamond */}
-          <div className="relative flex items-center w-48">
-            <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
-            <div
-              className="mx-2 w-2 h-2 rotate-45"
-              style={{ background: "var(--lab-accent)", flexShrink: 0 }}
-            />
-            <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
-          </div>
-
-          <p
-            data-string="split"
-            data-string-split="word[start]"
-            data-string-repeat
-            className="text-[var(--lab-text-dim)] text-lg max-w-md"
-          >
-            Expose the fraud before they bring the whole lab down.
-          </p>
         </div>
+        </BorderGlow>
+
+        <BorderGlow
+          backgroundColor="#111822"
+          borderRadius={8}
+          glowRadius={25}
+          glowIntensity={0.4}
+          colors={["#00DFA2", "#3399FF"]}
+          fillOpacity={0.3}
+        >
+          <div className="flex flex-col items-center gap-3 px-8 py-5 text-center">
+            <div className="relative flex items-center w-48">
+              <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
+              <div className="mx-2 w-2 h-2 rotate-45" style={{ background: "var(--lab-accent)", flexShrink: 0 }} />
+              <div className="flex-1 h-px" style={{ background: "var(--lab-border-hi)" }} />
+            </div>
+            <p
+              data-string="split"
+              data-string-split="word[start]"
+              data-string-repeat
+              className="text-[var(--lab-text-dim)] text-lg max-w-md"
+            >
+              Expose the fraud before they bring the whole lab down.
+            </p>
+          </div>
         </BorderGlow>
 
         {/* Action cards */}
