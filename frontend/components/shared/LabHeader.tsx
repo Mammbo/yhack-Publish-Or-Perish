@@ -21,7 +21,7 @@ export default function LabHeader({
 }: LabHeaderProps) {
   return (
     <header
-      className="flex items-center justify-between px-6 py-3 border-b lab-scanlines"
+      className="relative z-10 flex items-center justify-between px-6 py-3 border-b lab-scanlines"
       style={{ borderColor: "var(--lab-border)", background: "var(--lab-surface)" }}
     >
       <div className="flex items-center gap-4">
