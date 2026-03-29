@@ -25,9 +25,10 @@ import json
 import random
 import string
 from contextlib import asynccontextmanager
+from typing import List
 
 import socketio
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -36,27 +37,35 @@ class CreateRoomRequest(BaseModel):
     player_id: str
     player_name: str
 
+
 class JoinRoomRequest(BaseModel):
     room_code: str
     player_id: str
     player_name: str
 
+
 class MockStartRequest(BaseModel):
     room_code: str
+
 
 class GameReadyRequest(BaseModel):
     room_code: str
 
+
 class GameFailedRequest(BaseModel):
     room_code: str
+
 
 class RestartRequest(BaseModel):
     room_code: str
 
-import state
-from redis_client import close_redis
-from db import sessions_col
 
+import uuid
+from datetime import datetime
+
+import state
+from db import files_col, sessions_col
+from redis_client import close_redis
 
 # ── Socket.io server ───────────────────────────────────────────────────────────
 
@@ -67,6 +76,7 @@ sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 
 # ── Lifespan ───────────────────────────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -100,6 +110,7 @@ connected: dict[str, dict] = {}  # sid → { room_code, player_id, player_name }
 
 
 # ── HTTP Endpoints ─────────────────────────────────────────────────────────────
+
 
 @app.post("/room/create")
 async def create_room(body: CreateRoomRequest):
@@ -149,21 +160,26 @@ async def game_ready(body: GameReadyRequest):
     await state.transition_state(room_code, "playing")
 
     # Broadcast problem to everyone — directive intentionally excluded
-    await sio.emit("game_start", {
-        "problem_statement": content["problem_statement"],
-        "players": players,
-        "player_names": player_names,
-    }, room=room_code)
+    await sio.emit(
+        "game_start",
+        {
+            "problem_statement": content["problem_statement"],
+            "players": players,
+            "player_names": player_names,
+        },
+        room=room_code,
+    )
 
     # Send directive privately to the impostor only
     impostor_sid = next(
-        (sid for sid, d in connected.items() if d["player_id"] == impostor_id),
-        None
+        (sid for sid, d in connected.items() if d["player_id"] == impostor_id), None
     )
     if impostor_sid:
-        await sio.emit("impostor_directive", {
-            "directive": content["impostor_directive"]
-        }, to=impostor_sid)
+        await sio.emit(
+            "impostor_directive",
+            {"directive": content["impostor_directive"]},
+            to=impostor_sid,
+        )
 
     return {"status": "game started", "impostor": impostor_id}
 
@@ -203,9 +219,11 @@ async def game_failed(body: GameFailedRequest):
     """Person 2 calls this if the AI pipeline errors. Resets the room."""
     room_code = body.room_code
     await state.transition_state(room_code, "waiting")
-    await sio.emit("error", {
-        "message": "AI pipeline failed. Please try uploading again."
-    }, room=room_code)
+    await sio.emit(
+        "error",
+        {"message": "AI pipeline failed. Please try uploading again."},
+        room=room_code,
+    )
     return {"status": "reset"}
 
 
@@ -244,22 +262,83 @@ async def mock_start(body: MockStartRequest):
     await state.transition_state(room_code, "ingesting")
     await state.transition_state(room_code, "playing")
 
-    await sio.emit("game_start", {
-        "problem_statement": mock_content["problem_statement"],
-        "players": players,
-        "player_names": player_names,
-    }, room=room_code)
+    await sio.emit(
+        "game_start",
+        {
+            "problem_statement": mock_content["problem_statement"],
+            "players": players,
+            "player_names": player_names,
+        },
+        room=room_code,
+    )
 
     impostor_sid = next(
-        (sid for sid, d in connected.items() if d["player_id"] == impostor_id),
-        None
+        (sid for sid, d in connected.items() if d["player_id"] == impostor_id), None
     )
     if impostor_sid:
-        await sio.emit("impostor_directive", {
-            "directive": mock_content["impostor_directive"]
-        }, to=impostor_sid)
+        await sio.emit(
+            "impostor_directive",
+            {"directive": mock_content["impostor_directive"]},
+            to=impostor_sid,
+        )
 
     return {"status": "mock game started", "impostor": impostor_id}
+
+
+@app.post("/upload")
+async def upload_files(room_code: str, files: List[UploadFile] = File(...)):
+    if not await state.room_exists(room_code):
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    saved_files = []
+
+    for file in files:
+        ext = file.filename.split(".")[-1].lower()
+        if ext not in {"pdf", "pptx", "docx", "md", "txt"}:
+            raise HTTPException(status_code=400, detail=f"Unsupported file type: {ext}")
+
+        file_content = await file.read()
+        if len(file_content) > 25 * 1024 * 1024:
+            raise HTTPException(
+                status_code=400, detail=f"{file.filename} exceeds 25MB limit"
+            )
+
+        temp_path = f"/tmp/{uuid.uuid4()}_{file.filename}"
+        with open(temp_path, "wb") as f:
+            f.write(file_content)
+
+        if files_col is not None:
+            await files_col.insert_one(
+                {
+                    "room_code": room_code,
+                    "file_name": file.filename,
+                    "file_type": ext,
+                    "temp_path": temp_path,
+                    "uploaded_at": datetime.utcnow(),
+                }
+            )
+
+        saved_files.append({"path": temp_path, "type": ext, "name": file.filename})
+
+    if sessions_col is not None:
+        await sessions_col.insert_one(
+            {
+                "room_code": room_code,
+                "created_at": datetime.utcnow(),
+                "winner": None,
+                "ended_at": None,
+            }
+        )
+
+    await state.transition_state(room_code, "ingesting")
+
+    from tasks import process_files_and_generate_game
+
+    process_files_and_generate_game.delay(room_code, saved_files)
+
+    await sio.emit("upload_complete", {"room_code": room_code}, room=room_code)
+
+    return {"status": "processing"}
 
 
 @app.post("/room/restart")
@@ -273,7 +352,11 @@ async def restart_room(body: RestartRequest):
     room_code = body.room_code
 
     # Rebuild player list from live socket connections in this room
-    current = [(d["player_id"], d["player_name"]) for d in connected.values() if d["room_code"] == room_code]
+    current = [
+        (d["player_id"], d["player_name"])
+        for d in connected.values()
+        if d["room_code"] == room_code
+    ]
 
     await state.r.delete(f"room:{room_code}:players")
     await state.r.delete(f"room:{room_code}:player_names")
@@ -294,6 +377,7 @@ async def restart_room(body: RestartRequest):
 
 
 # ── Socket.io Events ───────────────────────────────────────────────────────────
+
 
 @sio.event
 async def connect(sid, environ):
@@ -338,12 +422,16 @@ async def join_room(sid, data):
     await state.set_player_name(room_code, player_id, player_name)
     players = await state.get_players(room_code)
     player_names = await state.get_player_names(room_code)
-    await sio.emit("player_joined", {
-        "players": players,
-        "player_names": player_names,
-        "player_id": player_id,
-        "player_name": player_name,
-    }, room=room_code)
+    await sio.emit(
+        "player_joined",
+        {
+            "players": players,
+            "player_names": player_names,
+            "player_id": player_id,
+            "player_name": player_name,
+        },
+        room=room_code,
+    )
 
 
 @sio.event
@@ -381,10 +469,14 @@ async def submit_contribution(sid, data):
     contributions = await state.get_contributions(room_code)
 
     # Broadcast the full updated contributions map to everyone in the room
-    await sio.emit("contribution_update", {
-        "player_id": player_id,
-        "contributions": contributions,  # full map, not just the delta
-    }, room=room_code)
+    await sio.emit(
+        "contribution_update",
+        {
+            "player_id": player_id,
+            "contributions": contributions,  # full map, not just the delta
+        },
+        room=room_code,
+    )
 
 
 @sio.event
@@ -404,16 +496,22 @@ async def call_meeting(sid, data):
 
     current = await state.get_state(room_code)
     if current != "playing":
-        await sio.emit("error", {"message": "Can only call a meeting during play"}, to=sid)
+        await sio.emit(
+            "error", {"message": "Can only call a meeting during play"}, to=sid
+        )
         return
 
     await state.transition_state(room_code, "voting")
 
     contributions = await state.get_contributions(room_code)
-    await sio.emit("meeting_called", {
-        "caller_id": caller_id,
-        "contributions_snapshot": contributions,
-    }, room=room_code)
+    await sio.emit(
+        "meeting_called",
+        {
+            "caller_id": caller_id,
+            "contributions_snapshot": contributions,
+        },
+        room=room_code,
+    )
 
     # Server-side 60s deadline — auto-tally if not all votes arrive in time
     asyncio.create_task(_auto_tally(room_code))
@@ -430,10 +528,14 @@ async def cast_vote(sid, data):
     # Tell everyone how many votes are in so the UI can show a progress indicator
     votes = await state.get_votes(room_code)
     players = await state.get_players(room_code)
-    await sio.emit("vote_progress", {
-        "votes_in": len(votes),
-        "total_players": len(players),
-    }, room=room_code)
+    await sio.emit(
+        "vote_progress",
+        {
+            "votes_in": len(votes),
+            "total_players": len(players),
+        },
+        room=room_code,
+    )
 
     if await state.all_votes_in(room_code):
         await tally_votes(room_code)
@@ -462,32 +564,42 @@ async def disconnect(sid, reason=None):
     directive = game_content.get("impostor_directive", "") if game_content else ""
 
     if player_id == impostor:
-        await sio.emit("game_over", {
-            "winner": "players",
-            "impostor_id": player_id,
-            "impostor_directive": directive,
-            "reason": "impostor_disconnected",
-        }, room=room_code)
+        await sio.emit(
+            "game_over",
+            {
+                "winner": "players",
+                "impostor_id": player_id,
+                "impostor_directive": directive,
+                "reason": "impostor_disconnected",
+            },
+            room=room_code,
+        )
         await state.transition_state(room_code, "ended")
         return
 
     remaining = await state.get_players(room_code)
     if len(remaining) <= 1:
-        await sio.emit("game_over", {
-            "winner": "impostor",
-            "impostor_id": impostor,
-            "impostor_directive": directive,
-        }, room=room_code)
+        await sio.emit(
+            "game_over",
+            {
+                "winner": "impostor",
+                "impostor_id": impostor,
+                "impostor_directive": directive,
+            },
+            room=room_code,
+        )
         await state.transition_state(room_code, "ended")
 
 
 # ── Vote resolution ────────────────────────────────────────────────────────────
+
 
 async def _auto_tally(room_code: str):
     """Force-tally after 60 s so a game never hangs on a missing vote."""
     await asyncio.sleep(60)
     if await state.get_state(room_code) == "voting":
         await tally_votes(room_code)
+
 
 async def tally_votes(room_code: str):
     """
@@ -509,43 +621,56 @@ async def tally_votes(room_code: str):
 
     # Tie — no elimination, resume collaboration
     if len(top) > 1:
-        await sio.emit("vote_result", {
-            "eliminated_id": None,
-            "was_impostor": False,
-            "impostor_directive": None,
-            "votes": tally,
-            "tie": True,
-        }, room=room_code)
+        await sio.emit(
+            "vote_result",
+            {
+                "eliminated_id": None,
+                "was_impostor": False,
+                "impostor_directive": None,
+                "votes": tally,
+                "tie": True,
+            },
+            room=room_code,
+        )
         await state.transition_state(room_code, "playing")
         return
 
     eliminated = top[0]
     impostor = await state.get_impostor(room_code)
-    was_impostor = (eliminated == impostor)
+    was_impostor = eliminated == impostor
 
     content = await state.get_content(room_code)
     directive = content.get("impostor_directive", "") if content else ""
 
-    await sio.emit("vote_result", {
-        "eliminated_id": eliminated,
-        "was_impostor": was_impostor,
-        "impostor_directive": directive,
-        "votes": tally,
-        "tie": False,
-    }, room=room_code)
+    await sio.emit(
+        "vote_result",
+        {
+            "eliminated_id": eliminated,
+            "was_impostor": was_impostor,
+            "impostor_directive": directive,
+            "votes": tally,
+            "tie": False,
+        },
+        room=room_code,
+    )
 
     if was_impostor:
         await state.transition_state(room_code, "ended")
-        await sio.emit("game_over", {
-            "winner": "players",
-            "impostor_id": impostor,
-            "impostor_directive": directive,
-        }, room=room_code)
+        await sio.emit(
+            "game_over",
+            {
+                "winner": "players",
+                "impostor_id": impostor,
+                "impostor_directive": directive,
+            },
+            room=room_code,
+        )
         if sessions_col:
             from datetime import datetime
+
             await sessions_col.update_one(
                 {"room_code": room_code},
-                {"$set": {"winner": "players", "ended_at": datetime.utcnow()}}
+                {"$set": {"winner": "players", "ended_at": datetime.utcnow()}},
             )
     else:
         await state.remove_player(room_code, eliminated)
@@ -554,16 +679,21 @@ async def tally_votes(room_code: str):
         remaining = await state.get_players(room_code)
         if len(remaining) <= 1:
             await state.transition_state(room_code, "ended")
-            await sio.emit("game_over", {
-                "winner": "impostor",
-                "impostor_id": impostor,
-                "impostor_directive": directive,
-            }, room=room_code)
+            await sio.emit(
+                "game_over",
+                {
+                    "winner": "impostor",
+                    "impostor_id": impostor,
+                    "impostor_directive": directive,
+                },
+                room=room_code,
+            )
             if sessions_col:
                 from datetime import datetime
+
                 await sessions_col.update_one(
                     {"room_code": room_code},
-                    {"$set": {"winner": "impostor", "ended_at": datetime.utcnow()}}
+                    {"$set": {"winner": "impostor", "ended_at": datetime.utcnow()}},
                 )
         else:
             # Wrong person eliminated — resume collaboration

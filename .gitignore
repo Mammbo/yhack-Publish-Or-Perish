@@ -1,9 +1,20 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+<<<<<<< HEAD
+# Environment variables — never commit these
+.env*
+.env
+.env.local
+.env.production
+
+# Dependencies
+/node_modules
+=======
 # dependencies
 /node_modules
 **/node_modules
 **/.next
+>>>>>>> 15ecb9094c52bc11e48937212e7219427c6c8ca4
 /.pnp
 .pnp.*
 .yarn/*
@@ -12,6 +23,43 @@
 !.yarn/releases
 !.yarn/versions
 
+<<<<<<< HEAD
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Temp files from file extraction
+/tmp/*.anki2
+/tmp/*.pdf
+/tmp/*.pptx
+/tmp/*.docx
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Logs
+*.log
+logs/
+=======
 # testing
 /coverage
 
@@ -27,11 +75,29 @@
 *.pem
 
 # debug
+>>>>>>> 15ecb9094c52bc11e48937212e7219427c6c8ca4
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+<<<<<<< HEAD
+# Misc
+.DS_Store
+Thumbs.db
+*.pem
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Vercel
+.vercel
+
+# TypeScript
+=======
 # env files (can opt-in for committing if needed)
 .env*
 
@@ -39,5 +105,6 @@ yarn-error.log*
 .vercel
 
 # typescript
+>>>>>>> 15ecb9094c52bc11e48937212e7219427c6c8ca4
 *.tsbuildinfo
 next-env.d.ts
