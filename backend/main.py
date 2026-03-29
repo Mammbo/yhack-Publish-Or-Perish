@@ -355,14 +355,16 @@ async def run_ai_pipeline(room_code: str, saved_files: list):
             )
 
     except Exception as exc:
+        import traceback
         print(f"[pipeline] Error for room {room_code}: {exc}")
+        traceback.print_exc()
         try:
             await state.transition_state(room_code, "waiting")
         except Exception:
             pass
         await sio.emit(
             "error",
-            {"message": "AI pipeline failed. Please try uploading again."},
+            {"message": f"AI pipeline failed: {exc}. Please try uploading again."},
             room=room_code,
         )
 
